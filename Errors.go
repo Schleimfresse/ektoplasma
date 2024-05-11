@@ -5,13 +5,18 @@ import (
 	"strings"
 )
 
+const (
+	bold  = "\033[1m"
+	reset = "\033[0m"
+)
+
 func NewError(posStart *Position, posEnd *Position, errorName string, details string) *Error {
 	return &Error{*posStart, *posEnd, errorName, details}
 }
 
 // AsString converts the error to a string format.
 func (e *Error) AsString() string {
-	result := fmt.Sprintf("%s: %s\n", e.ErrorName, e.Details)
+	result := fmt.Sprintf("%s%s: %s%s\n", bold, e.ErrorName, e.Details, reset)
 	result += fmt.Sprintf("File %s, line %d\n\n", e.PosStart.Fn, e.PosStart.Ln+1)
 	result += stringWithArrows(e.PosStart.Ftxt, e.PosStart, e.PosEnd)
 	return result
@@ -19,7 +24,7 @@ func (e *Error) AsString() string {
 
 // NewIllegalCharError creates a new IllegalCharError instance.
 func NewIllegalCharError(posStart *Position, posEnd *Position, details string) *IllegalCharError {
-	return &IllegalCharError{Error{*posStart, *posEnd, "Illegal Character:", details}}
+	return &IllegalCharError{Error{*posStart, *posEnd, "Illegal Character", details}}
 }
 
 // InvalidSyntaxError represents an error for invalid syntax.
@@ -29,7 +34,7 @@ type InvalidSyntaxError struct {
 
 // NewInvalidSyntaxError creates a new InvalidSyntaxError instance.
 func NewInvalidSyntaxError(posStart *Position, posEnd *Position, details string) *InvalidSyntaxError {
-	return &InvalidSyntaxError{Error{*posStart, *posEnd, "Invalid Syntax:", details}}
+	return &InvalidSyntaxError{Error{*posStart, *posEnd, "Invalid Syntax", details}}
 }
 
 // stringWithArrows returns a string with arrows pointing to the error position.
@@ -46,9 +51,8 @@ func stringWithArrows(text string, posStart Position, posEnd Position) string {
 	result.WriteString("\n")
 
 	// Output arrows
-	arrows := strings.Repeat(" ", posStart.Col) + strings.Repeat("^", max(0, idxEnd-idxStart-posStart.Col))
+	arrows := strings.Repeat(" ", posStart.Col) + strings.Repeat("^", max(0, idxEnd-idxStart+1))
 	result.WriteString(arrows)
-
 	return result.String()
 }
 

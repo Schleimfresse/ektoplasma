@@ -48,8 +48,11 @@ func (u *UnaryOpNode) String() string {
 
 func main() {
 
-	lexer := NewLexer("test", "30 + 2 * (4 - 2)")
+	lexer := NewLexer("test", "30 + 2 * 4 - 4 + (4*4)")
 	tokens, err := lexer.MakeTokens()
+	if err != nil {
+		panic(err)
+	}
 	for _, token := range tokens {
 		if token.PosStart != nil && token.PosEnd != nil {
 			fmt.Println(token.Type, token.Value, "START:", *token.PosStart, "END:", *token.PosEnd)
@@ -59,8 +62,8 @@ func main() {
 	}
 	parser := NewParser(tokens)
 	ast := parser.Parse()
-	if err != nil {
-		fmt.Println(err.AsString())
+	if ast.Error != nil {
+		fmt.Println(ast.Error.AsString())
 	} else {
 		fmt.Println(ast.Node)
 	}

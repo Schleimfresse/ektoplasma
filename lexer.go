@@ -91,7 +91,7 @@ func (l *Lexer) MakeTokens() ([]*Token, *IllegalCharError) {
 			return []*Token{}, NewIllegalCharError(posStart, l.Pos, "'"+char+"'")
 		}
 	}
-
+	tokens = append(tokens, NewToken(TT_EOF, nil, l.Pos.Copy(), l.Pos.Copy()))
 	return tokens, nil
 }
 

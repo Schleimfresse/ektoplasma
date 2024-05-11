@@ -40,6 +40,7 @@ func (p *Parser) Advance() error {
 	p.TokIdx++
 	if p.TokIdx < len(p.Tokens) {
 		p.Current = p.Tokens[p.TokIdx]
+		fmt.Println("Current token:", p.Current.Type, p.Current.Value, *p.Current.PosStart, *p.Current.PosEnd)
 		return nil
 	}
 	return fmt.Errorf("reached end of tokens")
@@ -49,14 +50,9 @@ func (p *Parser) Advance() error {
 func (p *Parser) Parse() *ParseResult {
 	res := p.Expr()
 	if res.Error == nil && p.Current.Type != TT_EOF {
-		err := &InvalidSyntaxError{
-			Error{PosStart: *p.Current.PosStart,
-				PosEnd:    *p.Current.PosEnd,
-				Details:   "Expected '+', '-', '*' or '/'",
-				ErrorName: "InvalidSyntaxError"}}
+		err := NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '+', '-', '*' or '/'")
 		return res.Failure(err.Error)
 	}
-	fmt.Println("LOG: ", p.Current.Type, res.Error)
 	return res
 }
 
@@ -66,39 +62,30 @@ func (p *Parser) Factor() *ParseResult {
 	tok := p.Current
 
 	if tok.Type == TT_PLUS || tok.Type == TT_MINUS {
+		p.Advance() // Advance token index here
 		factor := res.Register(p.Factor())
 		return res.Success(NewUnaryOpNode(tok, factor))
 	} else if tok.Type == TT_INT || tok.Type == TT_FLOAT {
-		if err := p.Advance(); err != nil {
-			return res.Failure(NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, err.Error()).Error)
-		}
+		p.Advance() // Advance token index here
 		return res.Success(NewNumberNode(tok))
 	} else if tok.Type == TT_LPAREN {
-		if err := p.Advance(); err != nil {
-			return res.Failure(NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, err.Error()).Error)
-		}
+		p.Advance() // Advance token index here
 		expr := res.Register(p.Expr())
 		if res.Error != nil {
 			return res
 		}
 		if p.Current.Type == TT_RPAREN {
-			if err := p.Advance(); err != nil {
-				return res.Failure(NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, err.Error()).Error)
-			}
+			p.Advance() // Advance token index here
 			return res.Success(expr)
 		}
 		err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected ')'")
 		return res.Failure(err.Error)
 	}
-	err := &InvalidSyntaxError{Error{
-		PosStart: *tok.PosStart,
-		PosEnd:   *tok.PosEnd,
-		Details:  "Expected int or float"},
-	}
+	err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected int or float")
+
 	return res.Failure(err.Error)
 }
 
-// Term parses a term.
 func (p *Parser) Term() *ParseResult {
 	return p.BinOp(p.Factor, []TokenTypes{TT_MUL, TT_DIV})
 }
@@ -119,7 +106,7 @@ func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypes) *ParseR
 	for ContainsType(ops, p.Current.Type) {
 		opTok := p.Current
 		if err := p.Advance(); err != nil {
-			return res.Failure(NewInvalidSyntaxError(opTok.PosStart, opTok.PosEnd, "Error advancing parser: "+err.Error()).Error)
+			return res.Failure(NewInvalidSyntaxError(opTok.PosStart, opTok.PosEnd, err.Error()).Error)
 		}
 
 		// Parse the right side of the expression
