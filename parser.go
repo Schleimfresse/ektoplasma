@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strconv"
+)
 
 // Register registers the result of a parsing operation.
 func (pr *ParseResult) Register(res *ParseResult) Node {
@@ -40,7 +43,6 @@ func (p *Parser) Advance() error {
 	p.TokIdx++
 	if p.TokIdx < len(p.Tokens) {
 		p.Current = p.Tokens[p.TokIdx]
-		fmt.Println("Current token:", p.Current.Type, p.Current.Value, *p.Current.PosStart, *p.Current.PosEnd)
 		return nil
 	}
 	return fmt.Errorf("reached end of tokens")
@@ -67,6 +69,20 @@ func (p *Parser) Factor() *ParseResult {
 		return res.Success(NewUnaryOpNode(tok, factor))
 	} else if tok.Type == TT_INT || tok.Type == TT_FLOAT {
 		p.Advance() // Advance token index here
+		var err error
+		if tok.Type == TT_FLOAT {
+			tok.Value, err = strconv.ParseFloat(tok.Value.(string), 64)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		if tok.Type == TT_INT {
+			value, err := strconv.ParseInt(tok.Value.(string), 10, 64)
+			if err != nil {
+				fmt.Println(err)
+			}
+			tok.Value = int(value)
+		}
 		return res.Success(NewNumberNode(tok))
 	} else if tok.Type == TT_LPAREN {
 		p.Advance() // Advance token index here
@@ -115,6 +131,7 @@ func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypes) *ParseR
 			return res
 		}
 		left = NewBinOpNode(left, opTok, right)
+		fmt.Println("LEFT:", left)
 	}
 
 	return res.Success(left)
@@ -127,5 +144,6 @@ func ContainsType(types []TokenTypes, typ TokenTypes) bool {
 			return true
 		}
 	}
+
 	return false
 }

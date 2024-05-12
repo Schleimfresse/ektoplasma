@@ -2,8 +2,9 @@ package main
 
 // UnaryOpNode represents a unary operation node.
 type UnaryOpNode struct {
-	OpTok *Token
-	Node  Node
+	OpTok    *Token
+	Node     Node
+	Position *Position
 }
 
 // BinOpNode represents a binary operation node.
@@ -11,10 +12,13 @@ type BinOpNode struct {
 	LeftNode  Node
 	OpTok     *Token
 	RightNode Node
+	Position  *Position
 }
 
 type NumberNode struct {
-	Tok *Token
+	Tok      *Token
+	Value    interface{}
+	Position *Position
 }
 
 // Lexer represents a lexer for tokenizing the code.
@@ -53,6 +57,8 @@ type TokenTypes string
 // Node represents a generic node.
 type Node interface {
 	String() string
+	PosStart() *Position
+	PosEnd() *Position
 }
 
 type Parser struct {
@@ -67,8 +73,39 @@ type ParseResult struct {
 }
 
 type Error struct {
-	PosStart  Position
-	PosEnd    Position
+	PosStart  *Position
+	PosEnd    *Position
 	ErrorName string
 	Details   string
+}
+
+type Interpreter struct{}
+
+type Context struct {
+	DisplayName    string
+	Parent         *Context
+	ParentEntryPos *Position
+}
+
+type Number struct {
+	Value    interface{}
+	PosStart *Position
+	PosEnd   *Position
+	Context  *Context
+}
+
+type RuntimeError struct {
+	*Error
+	Context *Context
+}
+
+// InvalidSyntaxError represents an error for invalid syntax.
+type InvalidSyntaxError struct {
+	Error
+}
+
+// RTResult represents the result of a runtime operation.
+type RTResult struct {
+	Value interface{}
+	Error *RuntimeError
 }

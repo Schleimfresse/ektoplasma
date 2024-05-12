@@ -18,7 +18,7 @@ const (
 
 // NewNumberNode creates a new NumberNode instance.
 func NewNumberNode(tok *Token) *NumberNode {
-	return &NumberNode{tok}
+	return &NumberNode{tok, nil, nil}
 }
 
 // String returns the string representation of the NumberNode.
@@ -28,7 +28,7 @@ func (n *NumberNode) String() string {
 
 // NewBinOpNode creates a new BinOpNode instance.
 func NewBinOpNode(left Node, opTok *Token, right Node) *BinOpNode {
-	return &BinOpNode{left, opTok, right}
+	return &BinOpNode{left, opTok, right, nil}
 }
 
 // String returns the string representation of the BinOpNode.
@@ -38,7 +38,7 @@ func (b *BinOpNode) String() string {
 
 // NewUnaryOpNode creates a new UnaryOpNode instance.
 func NewUnaryOpNode(opTok *Token, node Node) *UnaryOpNode {
-	return &UnaryOpNode{opTok, node}
+	return &UnaryOpNode{opTok, node, nil}
 }
 
 // String returns the string representation of the UnaryOpNode.
@@ -48,7 +48,7 @@ func (u *UnaryOpNode) String() string {
 
 func main() {
 
-	lexer := NewLexer("test", "30 + 2 * 4 - 4 + (4*4)")
+	lexer := NewLexer("test", "(-30 + 10) * 2")
 	tokens, err := lexer.MakeTokens()
 	if err != nil {
 		panic(err)
@@ -67,4 +67,8 @@ func main() {
 	} else {
 		fmt.Println(ast.Node)
 	}
+	context := NewContext("<program>", nil, nil)
+	interpreter := Interpreter{}
+	result := interpreter.visit(ast.Node, context)
+	fmt.Println(result.Value)
 }

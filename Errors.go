@@ -11,30 +11,32 @@ const (
 )
 
 func NewError(posStart *Position, posEnd *Position, errorName string, details string) *Error {
-	return &Error{*posStart, *posEnd, errorName, details}
+	return &Error{posStart, posEnd, errorName, details}
 }
 
 // AsString converts the error to a string format.
 func (e *Error) AsString() string {
 	result := fmt.Sprintf("%s%s: %s%s\n", bold, e.ErrorName, e.Details, reset)
 	result += fmt.Sprintf("File %s, line %d\n\n", e.PosStart.Fn, e.PosStart.Ln+1)
-	result += stringWithArrows(e.PosStart.Ftxt, e.PosStart, e.PosEnd)
+	result += stringWithArrows(e.PosStart.Ftxt, *e.PosStart, *e.PosEnd)
 	return result
 }
 
 // NewIllegalCharError creates a new IllegalCharError instance.
 func NewIllegalCharError(posStart *Position, posEnd *Position, details string) *IllegalCharError {
-	return &IllegalCharError{Error{*posStart, *posEnd, "Illegal Character", details}}
-}
-
-// InvalidSyntaxError represents an error for invalid syntax.
-type InvalidSyntaxError struct {
-	Error
+	return &IllegalCharError{Error{posStart, posEnd, "Illegal Character", details}}
 }
 
 // NewInvalidSyntaxError creates a new InvalidSyntaxError instance.
 func NewInvalidSyntaxError(posStart *Position, posEnd *Position, details string) *InvalidSyntaxError {
-	return &InvalidSyntaxError{Error{*posStart, *posEnd, "Invalid Syntax", details}}
+	return &InvalidSyntaxError{Error{posStart, posEnd, "Invalid Syntax", details}}
+}
+
+func NewRTError(posStart *Position, posEnd *Position, details string, context *Context) *RuntimeError {
+	return &RuntimeError{
+		Error:   NewError(posStart, posEnd, "Runtime Error", details),
+		Context: context,
+	}
 }
 
 // stringWithArrows returns a string with arrows pointing to the error position.

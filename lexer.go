@@ -1,7 +1,5 @@
 package main
 
-import "fmt"
-
 // NewPosition creates a new Position instance.
 func NewPosition(idx, ln, col int, fn, ftxt string) *Position {
 	return &Position{idx, ln, col, fn, ftxt}
@@ -51,7 +49,6 @@ func (l *Lexer) Advance() {
 	l.Pos.Advance(l.CurrentChar)
 	if l.Pos.Idx < len(l.Text) {
 		l.CurrentChar = l.Text[l.Pos.Idx]
-		fmt.Println("Current char pos:", l.Pos.Idx, l.Pos.Col, l.Pos.Ln)
 	} else {
 		l.CurrentChar = 0 // Null character
 	}
