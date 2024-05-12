@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"math"
 	"reflect"
 )
 
@@ -21,12 +23,20 @@ func (n *Number) SetContext(context *Context) *Number {
 // AddedTo performs addition with another number.
 func (n *Number) AddedTo(other *Number) (*Number, *RuntimeError) {
 	if n.Value != nil && other.Value != nil {
+		log.Println(n.Value, other.Value, reflect.TypeOf(n.Value), reflect.TypeOf(other.Value))
 		switch nVal := n.Value.(type) {
 		case int:
-			fmt.Println(nVal, other.Value)
-			return NewNumber(nVal+other.Value.(int)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			if otherIsInt, ok := other.Value.(int); ok {
+				return NewNumber(float64(nVal)+float64(otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			} else if otherIsFloat, ok := other.Value.(float64); ok {
+				return NewNumber(float64(nVal)+otherIsFloat).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			}
 		case float64:
-			return NewNumber(nVal+other.Value.(float64)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			if otherIsInt, ok := other.Value.(int); ok {
+				return NewNumber(nVal+float64(otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			} else if otherIsFloat, ok := other.Value.(float64); ok {
+				return NewNumber(nVal+otherIsFloat).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			}
 		}
 	}
 	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
@@ -62,12 +72,43 @@ func (n *Number) MultipliedBy(other *Number) (*Number, *RuntimeError) {
 // DivedBy performs division with another number.
 func (n *Number) DividedBy(other *Number) (*Number, *RuntimeError) {
 	if n.Value != nil && other.Value != nil {
+		if other.Value == 0 {
+			return nil, NewRTError(other.PosStart, other.PosEnd, "Division by zero", other.Context)
+		}
 		switch nVal := n.Value.(type) {
 		case int:
 			return NewNumber(nVal/other.Value.(int)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
 		case float64:
 			return NewNumber(nVal/other.Value.(float64)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
 		}
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) PowedBy(other *Number) (*Number, *RuntimeError) {
+	if n.Value != nil && other.Value != nil {
+		var nVal, otherVal float64
+		switch val := n.Value.(type) {
+		case float64:
+			nVal = val
+		case int:
+			nVal = float64(val)
+		default:
+			// Handle unsupported types here
+			return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+		}
+
+		switch val := other.Value.(type) {
+		case float64:
+			otherVal = val
+		case int:
+			otherVal = float64(val)
+		default:
+			// Handle unsupported types here
+			return nil, NewRTError(other.PosStart, other.PosEnd, "Invalid operation", other.Context)
+		}
+
+		return NewNumber(math.Pow(nVal, otherVal)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
 	}
 	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
 }

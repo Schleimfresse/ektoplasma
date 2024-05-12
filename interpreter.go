@@ -7,22 +7,22 @@ import (
 
 // PosStart returns the start position of the number node.
 func (n *NumberNode) PosStart() *Position {
-	return n.Position
+	return n.Tok.PosStart
 }
 
 // PosEnd returns the end position of the number node.
 func (n *NumberNode) PosEnd() *Position {
-	return n.Position
+	return n.Tok.PosEnd
 }
 
 // PosStart returns the start position of the binary operation node.
 func (b *BinOpNode) PosStart() *Position {
-	return b.Position
+	return b.LeftNode.PosStart()
 }
 
 // PosEnd returns the end position of the binary operation node.
 func (b *BinOpNode) PosEnd() *Position {
-	return b.Position
+	return b.RightNode.PosEnd()
 }
 
 // PosStart returns the start position of the unary operation node.
@@ -56,9 +56,9 @@ func (i *Interpreter) NoVisitMethod(node Node, context *Context) *RTResult {
 }
 
 func (i *Interpreter) visit_NumberNode(node NumberNode, context *Context) *RTResult {
-	fmt.Println(node.Tok.Value, reflect.TypeOf(node.Tok.Value))
+	fmt.Println(node.Tok, reflect.TypeOf(node.Tok.Value))
 	return NewRTResult().Success(
-		NewNumber(node.Tok.Value).SetContext(context).SetPos(node.PosStart(), node.PosEnd()),
+		NewNumber(node.Value).SetContext(context).SetPos(node.PosStart(), node.PosEnd()),
 	)
 }
 
@@ -99,14 +99,16 @@ func (i *Interpreter) visit_BinOpNode(node BinOpNode, context *Context) *RTResul
 		result, err = left.MultipliedBy(right)
 	case TT_DIV:
 		result, err = left.DividedBy(right)
+	case TT_POW:
+		result, err = left.PowedBy(right)
 	default:
 		return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid operation", context))
 	}
-	fmt.Println("RESULT", result, right.Value, left.Value)
+	fmt.Println("RESULTed ", result, right.Value, left.Value, err)
 	if err != nil {
 		return res.Failure(err)
 	}
-
+	fmt.Println("POS:", node.PosStart(), node.PosEnd())
 	return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 

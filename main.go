@@ -13,12 +13,13 @@ const (
 	TT_DIV    TokenTypes = "DIV"
 	TT_LPAREN TokenTypes = "LPAREN"
 	TT_RPAREN TokenTypes = "RPAREN"
+	TT_POW    TokenTypes = "POW"
 	TT_EOF    TokenTypes = "EOF"
 )
 
 // NewNumberNode creates a new NumberNode instance.
 func NewNumberNode(tok *Token) *NumberNode {
-	return &NumberNode{tok, nil, nil}
+	return &NumberNode{tok, tok.Value, nil}
 }
 
 // String returns the string representation of the NumberNode.
@@ -47,12 +48,13 @@ func (u *UnaryOpNode) String() string {
 }
 
 func main() {
-
-	lexer := NewLexer("test", "(-30 + 10) * 2")
+	lexer := NewLexer("<stdin>", "(10 + 10)^2")
 	tokens, err := lexer.MakeTokens()
 	if err != nil {
-		panic(err)
+		fmt.Println(err.AsString())
+		return
 	}
+
 	for _, token := range tokens {
 		if token.PosStart != nil && token.PosEnd != nil {
 			fmt.Println(token.Type, token.Value, "START:", *token.PosStart, "END:", *token.PosEnd)
@@ -70,5 +72,9 @@ func main() {
 	context := NewContext("<program>", nil, nil)
 	interpreter := Interpreter{}
 	result := interpreter.visit(ast.Node, context)
-	fmt.Println(result.Value)
+	if result.Error != nil {
+		fmt.Println(result.Error.AsString())
+	} else {
+		fmt.Println(result.Value)
+	}
 }

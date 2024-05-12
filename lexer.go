@@ -81,6 +81,9 @@ func (l *Lexer) MakeTokens() ([]*Token, *IllegalCharError) {
 		} else if l.CurrentChar == ')' {
 			tokens = append(tokens, NewToken(TT_RPAREN, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
+		} else if l.CurrentChar == '^' {
+			tokens = append(tokens, NewToken(TT_POW, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
 		} else {
 			posStart := l.Pos.Copy()
 			char := string(l.CurrentChar)

@@ -67,6 +67,17 @@ func (p *Parser) Factor() *ParseResult {
 		p.Advance() // Advance token index here
 		factor := res.Register(p.Factor())
 		return res.Success(NewUnaryOpNode(tok, factor))
+	} else if tok.Type == TT_POW {
+		p.Advance()
+		base := res.Register(p.Factor())
+		if res.Error != nil {
+			return res
+		}
+		exp := res.Register(p.Factor())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(NewBinOpNode(base, tok, exp))
 	} else if tok.Type == TT_INT || tok.Type == TT_FLOAT {
 		p.Advance() // Advance token index here
 		var err error
@@ -103,7 +114,7 @@ func (p *Parser) Factor() *ParseResult {
 }
 
 func (p *Parser) Term() *ParseResult {
-	return p.BinOp(p.Factor, []TokenTypes{TT_MUL, TT_DIV})
+	return p.BinOp(p.Factor, []TokenTypes{TT_MUL, TT_DIV, TT_POW})
 }
 
 // Expr parses an expression.

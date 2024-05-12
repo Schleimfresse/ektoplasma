@@ -45,15 +45,15 @@ func stringWithArrows(text string, posStart Position, posEnd Position) string {
 	var result strings.Builder
 
 	// Calculate indices
-	idxStart := max(0, strings.LastIndex(lines[posStart.Ln], "\n"))
-	idxEnd := min(len(text), strings.Index(lines[posEnd.Ln], "\n")+1)
+	//idxStart := max(0, strings.LastIndex(lines[posStart.Ln], "\n"))
+	//idxEnd := min(len(text), strings.Index(lines[posEnd.Ln], "\n")+1)
 
 	// Output line
 	result.WriteString(lines[posStart.Ln])
 	result.WriteString("\n")
 
 	// Output arrows
-	arrows := strings.Repeat(" ", posStart.Col) + strings.Repeat("^", max(0, idxEnd-idxStart+1))
+	arrows := strings.Repeat(" ", posStart.Col) + strings.Repeat("^", max(0, posEnd.Idx-posStart.Idx+1))
 	result.WriteString(arrows)
 	return result.String()
 }
