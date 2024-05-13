@@ -2,40 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 )
 
-// PosStart returns the start position of the number node.
-func (n *NumberNode) PosStart() *Position {
-	return n.Tok.PosStart
-}
-
-// PosEnd returns the end position of the number node.
-func (n *NumberNode) PosEnd() *Position {
-	return n.Tok.PosEnd
-}
-
-// PosStart returns the start position of the binary operation node.
-func (b *BinOpNode) PosStart() *Position {
-	return b.LeftNode.PosStart()
-}
-
-// PosEnd returns the end position of the binary operation node.
-func (b *BinOpNode) PosEnd() *Position {
-	return b.RightNode.PosEnd()
-}
-
-// PosStart returns the start position of the unary operation node.
-func (u *UnaryOpNode) PosStart() *Position {
-	return u.Position
-}
-
-// PosEnd returns the end position of the unary operation node.
-func (u *UnaryOpNode) PosEnd() *Position {
-	return u.Position
-}
-
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
+	//log.Println(reflect.TypeOf(node))
 	switch n := node.(type) {
 	case *UnaryOpNode:
 		return i.visit_UnaryOpNode(*n, context)
@@ -43,6 +15,10 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visit_BinOpNode(*n, context)
 	case *NumberNode:
 		return i.visit_NumberNode(*n, context)
+	case *VarAccessNode:
+		return i.visitVarAccessNode(*n, context)
+	case *VarAssignNode:
+		return i.visitVarAssignNode(*n, context)
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -127,14 +103,55 @@ func (i *Interpreter) visit_UnaryOpNode(node UnaryOpNode, context *Context) *RTR
 		return res.Failure(NewRTError(node.Node.PosStart(), node.Node.PosEnd(), "Expected a number", context))
 	}
 
+	// else if for some reason required, when not expressions like +1 won't work because the context is not set
 	if node.OpTok.Type == TT_MINUS {
 		result, err = num.MultipliedBy(NewNumber(-1))
 		if err != nil {
 			return res.Failure(err)
 		}
+	} else if node.OpTok.Type == TT_PLUS {
+		result, err = num.MultipliedBy(NewNumber(1))
+		if err != nil {
+			return res.Failure(err)
+		}
 	}
 
+	log.Println(context)
 	return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
+}
+
+// visitVarAccessNode visits a VarAccessNode and retrieves its value from the symbol table.
+func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *RTResult {
+	res := NewRTResult()
+	varName := node.VarNameTok.Value
+
+	value, exists := context.SymbolTable.Get(varName.(string))
+	f := value.(*Number)
+
+	if !exists {
+		return res.Failure(NewRTError(
+			node.PosStart(), node.PosEnd(),
+			fmt.Sprintf("'%s' is not defined", varName),
+			context))
+	}
+
+	// TODO
+	value = f.SetPos(node.PosStart(), node.PosEnd())
+	return res.Success(value)
+}
+
+// visitVarAssignNode visits a VarAssignNode and assigns a value to the variable in the symbol table.
+func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *RTResult {
+	res := NewRTResult()
+	varName := node.VarNameTok.Value
+
+	value := res.Register(i.visit(node.ValueNode, context))
+	if res.Error != nil {
+		return res
+	}
+	log.Println("IMP:", reflect.TypeOf(value), value)
+	context.SymbolTable.Set(varName.(string), value)
+	return res.Success(value)
 }
 
 // NewRTResult creates a new RTResult instance.
@@ -169,4 +186,31 @@ func NewContext(displayName string, parent *Context, parentEntryPos *Position) *
 		Parent:         parent,
 		ParentEntryPos: parentEntryPos,
 	}
+}
+
+// NewSymbolTable creates a new SymbolTable instance.
+func NewSymbolTable() *SymbolTable {
+	return &SymbolTable{
+		symbols: make(map[string]interface{}),
+		parent:  nil,
+	}
+}
+
+// Get retrieves the value associated with the name from the symbol table.
+func (st *SymbolTable) Get(name string) (interface{}, bool) {
+	value, exists := st.symbols[name]
+	if !exists && st.parent != nil {
+		return st.parent.Get(name)
+	}
+	return value, exists
+}
+
+// Set sets the value associated with the name in the symbol table.
+func (st *SymbolTable) Set(name string, value interface{}) {
+	st.symbols[name] = value
+}
+
+// Remove removes the entry associated with the name from the symbol table.
+func (st *SymbolTable) Remove(name string) {
+	delete(st.symbols, name)
 }

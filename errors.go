@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -40,7 +41,7 @@ func NewRTError(posStart *Position, posEnd *Position, details string, context *C
 }
 
 // stringWithArrows returns a string with arrows pointing to the error position.
-func stringWithArrows(text string, posStart Position, posEnd Position) string {
+/*func stringWithArrows(text string, posStart Position, posEnd Position) string {
 	lines := strings.Split(text, "\n")
 	var result strings.Builder
 
@@ -56,6 +57,55 @@ func stringWithArrows(text string, posStart Position, posEnd Position) string {
 	arrows := strings.Repeat(" ", posStart.Col) + strings.Repeat("^", max(0, posEnd.Idx-posStart.Idx+1))
 	result.WriteString(arrows)
 	return result.String()
+}*/
+
+func stringWithArrows(text string, posStart Position, posEnd Position) string {
+	var result strings.Builder
+
+	// Calculate indices
+	idxStart := max(strings.LastIndex(text[:posStart.Idx], "\n"), 0)
+	idxEnd := strings.Index(text[posStart.Idx:], "\n")
+	if idxEnd < 0 {
+		idxEnd = len(text)
+	} else {
+		idxEnd += posStart.Idx
+	}
+
+	// Generate each line
+	lineCount := posEnd.Ln - posStart.Ln + 1
+	for i := 0; i < lineCount; i++ {
+		// Calculate line columns
+		line := text[idxStart:idxEnd]
+		colStart := posStart.Col
+		if i != 0 {
+			colStart = 0
+		}
+		colEnd := posEnd.Col
+		if i != lineCount-1 {
+			colEnd = len(line) - 1
+		}
+
+		// Append to result
+		result.WriteString(line + "\n")
+		log.Println(colEnd, colStart)
+		if colEnd-colStart == 0 {
+			result.WriteString(strings.Repeat(" ", colStart) + strings.Repeat("^", 1))
+		} else {
+			result.WriteString(strings.Repeat(" ", colStart) + strings.Repeat("^", colEnd-colStart))
+
+		}
+
+		// Re-calculate indices
+		idxStart = idxEnd
+		idxEnd = strings.Index(text[idxStart:], "\n")
+		if idxEnd < 0 {
+			idxEnd = len(text)
+		} else {
+			idxEnd += idxStart + 1
+		}
+	}
+
+	return strings.ReplaceAll(result.String(), "\t", "")
 }
 
 // min returns the minimum of two integers.

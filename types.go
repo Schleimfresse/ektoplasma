@@ -9,16 +9,33 @@ type UnaryOpNode struct {
 
 // BinOpNode represents a binary operation node.
 type BinOpNode struct {
-	LeftNode  Node
-	OpTok     *Token
-	RightNode Node
-	Position  *Position
+	LeftNode      Node
+	OpTok         *Token
+	RightNode     Node
+	PositionStart *Position
+	PositionEnd   *Position
 }
 
 type NumberNode struct {
-	Tok      *Token
-	Value    interface{}
-	Position *Position
+	Tok           *Token
+	Value         interface{}
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+// VarAccessNode represents a variable access node
+type VarAccessNode struct {
+	VarNameTok    *Token
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+// VarAssignNode represents a variable assignment node
+type VarAssignNode struct {
+	VarNameTok    *Token
+	ValueNode     Node
+	PositionStart *Position
+	PositionEnd   *Position
 }
 
 // Lexer represents a lexer for tokenizing the code.
@@ -68,8 +85,9 @@ type Parser struct {
 }
 
 type ParseResult struct {
-	Error *Error
-	Node  Node
+	AdvanceCount int
+	Error        *Error
+	Node         Node
 }
 
 type Error struct {
@@ -85,6 +103,7 @@ type Context struct {
 	DisplayName    string
 	Parent         *Context
 	ParentEntryPos *Position
+	SymbolTable    *SymbolTable
 }
 
 type Number struct {
@@ -108,4 +127,10 @@ type InvalidSyntaxError struct {
 type RTResult struct {
 	Value interface{}
 	Error *RuntimeError
+}
+
+// SymbolTable represents a symbol table in the interpreter.
+type SymbolTable struct {
+	symbols map[string]interface{}
+	parent  *SymbolTable
 }

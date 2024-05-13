@@ -1,58 +1,40 @@
 package main
 
-import "fmt"
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
+)
 
 // ecp Ektoplasma
 
 const (
-	TT_INT    TokenTypes = "INT"
-	TT_FLOAT  TokenTypes = "FLOAT"
-	TT_PLUS   TokenTypes = "PLUS"
-	TT_MINUS  TokenTypes = "MINUS"
-	TT_MUL    TokenTypes = "MUL"
-	TT_DIV    TokenTypes = "DIV"
-	TT_LPAREN TokenTypes = "LPAREN"
-	TT_RPAREN TokenTypes = "RPAREN"
-	TT_POW    TokenTypes = "POW"
-	TT_EOF    TokenTypes = "EOF"
+	TT_INT        TokenTypes = "INT"
+	TT_FLOAT      TokenTypes = "FLOAT"
+	TT_IDENTIFIER TokenTypes = "IDENTIFIER"
+	TT_KEYWORD    TokenTypes = "KEYWORD"
+	TT_PLUS       TokenTypes = "PLUS"
+	TT_MINUS      TokenTypes = "MINUS"
+	TT_MUL        TokenTypes = "MUL"
+	TT_DIV        TokenTypes = "DIV"
+	TT_EQ         TokenTypes = "EQ"
+	TT_LPAREN     TokenTypes = "LPAREN"
+	TT_RPAREN     TokenTypes = "RPAREN"
+	TT_POW        TokenTypes = "POW"
+	TT_EOF        TokenTypes = "EOF"
 )
 
-// NewNumberNode creates a new NumberNode instance.
-func NewNumberNode(tok *Token) *NumberNode {
-	return &NumberNode{tok, tok.Value, nil}
-}
+var KEYWORDS = []string{"VAR"}
+var GlobalSymbolTable = NewSymbolTable()
 
-// String returns the string representation of the NumberNode.
-func (n *NumberNode) String() string {
-	return fmt.Sprintf("%v", n.Tok)
-}
+func run(fileName, text string) (interface{}, *RuntimeError) {
+	lexer := NewLexer(fileName, text)
 
-// NewBinOpNode creates a new BinOpNode instance.
-func NewBinOpNode(left Node, opTok *Token, right Node) *BinOpNode {
-	return &BinOpNode{left, opTok, right, nil}
-}
-
-// String returns the string representation of the BinOpNode.
-func (b *BinOpNode) String() string {
-	return fmt.Sprintf("(%v, %v, %v)", b.LeftNode, b.OpTok, b.RightNode)
-}
-
-// NewUnaryOpNode creates a new UnaryOpNode instance.
-func NewUnaryOpNode(opTok *Token, node Node) *UnaryOpNode {
-	return &UnaryOpNode{opTok, node, nil}
-}
-
-// String returns the string representation of the UnaryOpNode.
-func (u *UnaryOpNode) String() string {
-	return fmt.Sprintf("(%v, %v)", u.OpTok, u.Node)
-}
-
-func main() {
-	lexer := NewLexer("<stdin>", "(10 + 10)^2")
 	tokens, err := lexer.MakeTokens()
 	if err != nil {
 		fmt.Println(err.AsString())
-		return
+		return nil, nil
 	}
 
 	for _, token := range tokens {
@@ -66,15 +48,57 @@ func main() {
 	ast := parser.Parse()
 	if ast.Error != nil {
 		fmt.Println(ast.Error.AsString())
+		return nil, nil
 	} else {
 		fmt.Println(ast.Node)
 	}
+
 	context := NewContext("<program>", nil, nil)
+	context.SymbolTable = GlobalSymbolTable
 	interpreter := Interpreter{}
 	result := interpreter.visit(ast.Node, context)
-	if result.Error != nil {
-		fmt.Println(result.Error.AsString())
-	} else {
-		fmt.Println(result.Value)
+
+	return result.Value, result.Error
+}
+
+func main() {
+	GlobalSymbolTable.Set("null", NewNumber(0))
+	fileName := "file.ecp"
+	file, err := os.Open(fileName)
+	if err != nil {
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Process the line
+		fmt.Println("Processing line:", line)
+
+		// Split the line into words if needed
+		words := strings.Fields(line)
+		for _, word := range words {
+			fmt.Println("Word:", word)
+		}
+
+		// Run your function for each line
+		result, err := run(fileName, line)
+		if err != nil {
+			fmt.Println(err.AsString())
+			continue
+		}
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			fmt.Println(result)
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Println("Error reading file:", err)
+		return
 	}
 }
