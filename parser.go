@@ -237,13 +237,16 @@ func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypeInfo) *Par
 
 // ContainsTypeOrValue checks if the token type and value exist in the list of type-value pairs.
 func ContainsTypeOrValue(types []TokenTypeInfo, typ TokenTypes, val interface{}) bool {
+	log.Println(val)
 	for _, t := range types {
+		log.Println(t.Type, typ)
 		if val != nil {
-			if t.Type == typ || *t.Value == val.(string) {
-				return true
-			} else if t.Type == typ {
+			if *t.Value == val.(string) {
 				return true
 			}
+		}
+		if t.Type == typ {
+			return true
 		}
 	}
 	return false

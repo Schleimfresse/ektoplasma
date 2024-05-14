@@ -1,2 +1,1 @@
-VAR isSame = 1 == 1
-isSame == true
+5 < 6
