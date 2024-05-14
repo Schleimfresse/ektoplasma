@@ -71,6 +71,11 @@ type Position struct {
 // TokenTypes represents the different types of tokens.
 type TokenTypes string
 
+type TokenTypeInfo struct {
+	Type  TokenTypes
+	Value *string
+}
+
 // Node represents a generic node.
 type Node interface {
 	String() string
@@ -120,6 +125,11 @@ type RuntimeError struct {
 
 // InvalidSyntaxError represents an error for invalid syntax.
 type InvalidSyntaxError struct {
+	Error
+}
+
+// ExpectedCharError represents an error for an expected character.
+type ExpectedCharError struct {
 	Error
 }
 

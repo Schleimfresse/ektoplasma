@@ -113,6 +113,120 @@ func (n *Number) PowedBy(other *Number) (*Number, *RuntimeError) {
 	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
 }
 
+func (n *Number) GetComparisonEq(other *Number) (*Number, *RuntimeError) {
+	if other != nil {
+		return NewNumber(ConvertBoolToInt(n.Value == other.Value)).SetContext(n.Context), nil
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) GetComparisonNe(other *Number) (*Number, *RuntimeError) {
+	if other != nil {
+		return NewNumber(ConvertBoolToInt(n.Value != other.Value)).SetContext(n.Context), nil
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) GetComparisonLt(other *Number) (*Number, *RuntimeError) {
+	if other != nil {
+		switch nVal := n.Value.(type) {
+		case int:
+			if otherIsInt, ok := other.Value.(int); ok {
+				return NewNumber(ConvertBoolToInt(n.Value.(int) < otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			} else if otherIsFloat, ok := other.Value.(float64); ok {
+				return NewNumber(ConvertBoolToInt(float64(nVal) < otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			}
+		case float64:
+			if otherIsInt, ok := other.Value.(int); ok {
+				return NewNumber(ConvertBoolToInt(n.Value.(int) < otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			} else if otherIsFloat, ok := other.Value.(float64); ok {
+				return NewNumber(ConvertBoolToInt(nVal < otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			}
+		}
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) GetComparisonGt(other *Number) (*Number, *RuntimeError) {
+	switch nVal := n.Value.(type) {
+	case int:
+		if otherIsInt, ok := other.Value.(int); ok {
+			return NewNumber(ConvertBoolToInt(n.Value.(int) > otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		} else if otherIsFloat, ok := other.Value.(float64); ok {
+			return NewNumber(ConvertBoolToInt(float64(nVal) > otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		}
+	case float64:
+		if otherIsInt, ok := other.Value.(int); ok {
+			return NewNumber(ConvertBoolToInt(n.Value.(int) > otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		} else if otherIsFloat, ok := other.Value.(float64); ok {
+			return NewNumber(ConvertBoolToInt(nVal > otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		}
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) GetComparisonLte(other *Number) (*Number, *RuntimeError) {
+	switch nVal := n.Value.(type) {
+	case int:
+		if otherIsInt, ok := other.Value.(int); ok {
+			return NewNumber(ConvertBoolToInt(n.Value.(int) <= otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		} else if otherIsFloat, ok := other.Value.(float64); ok {
+			return NewNumber(ConvertBoolToInt(float64(nVal) <= otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		}
+	case float64:
+		if otherIsInt, ok := other.Value.(int); ok {
+			return NewNumber(ConvertBoolToInt(n.Value.(int) <= otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		} else if otherIsFloat, ok := other.Value.(float64); ok {
+			return NewNumber(ConvertBoolToInt(nVal <= otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		}
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) GetComparisonGte(other *Number) (*Number, *RuntimeError) {
+	switch nVal := n.Value.(type) {
+	case int:
+		if otherIsInt, ok := other.Value.(int); ok {
+			return NewNumber(ConvertBoolToInt(n.Value.(int) >= otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		} else if otherIsFloat, ok := other.Value.(float64); ok {
+			return NewNumber(ConvertBoolToInt(float64(nVal) >= otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		}
+	case float64:
+		if otherIsInt, ok := other.Value.(int); ok {
+			return NewNumber(ConvertBoolToInt(n.Value.(int) >= otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		} else if otherIsFloat, ok := other.Value.(float64); ok {
+			return NewNumber(ConvertBoolToInt(nVal >= otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+		}
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) AndedBy(other *Number) (*Number, *RuntimeError) {
+	if other != nil {
+		return NewNumber(ConvertBoolToInt(n.Value != 0 && other.Value != 0)).SetContext(n.Context), nil
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) OredBy(other *Number) (*Number, *RuntimeError) {
+	if other != nil {
+		return NewNumber(ConvertBoolToInt(n.Value != 0 || other.Value != 0)).SetContext(n.Context), nil
+	}
+	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
+}
+
+func (n *Number) Notted() (*Number, *RuntimeError) {
+	return NewNumber(ConvertBoolToInt(n.Value == 0)).SetContext(n.Context), nil
+}
+
 func NewNumber(value interface{}) *Number {
 	return &Number{Value: value}
+}
+
+func ConvertBoolToInt(expr bool) interface{} {
+	if expr {
+		return 1
+	} else {
+		return 0
+	}
 }

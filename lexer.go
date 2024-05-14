@@ -62,7 +62,7 @@ func (l *Lexer) Advance() {
 }
 
 // MakeTokens tokenizes the input text.
-func (l *Lexer) MakeTokens() ([]*Token, *IllegalCharError) {
+func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 	tokens := []*Token{}
 
 	for l.CurrentChar != 0 {
@@ -93,14 +93,23 @@ func (l *Lexer) MakeTokens() ([]*Token, *IllegalCharError) {
 		} else if l.CurrentChar == '^' {
 			tokens = append(tokens, NewToken(TT_POW, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
+		} else if l.CurrentChar == '!' {
+			token, err := l.MakeNotEquals()
+			if err != nil {
+				return nil, err
+			}
+			tokens = append(tokens, token)
 		} else if l.CurrentChar == '=' {
-			tokens = append(tokens, NewToken(TT_EQ, nil, l.Pos.Copy(), l.Pos.Copy()))
-			l.Advance()
+			tokens = append(tokens, l.MakeEquals())
+		} else if l.CurrentChar == '<' {
+			tokens = append(tokens, l.MakeLessThan())
+		} else if l.CurrentChar == '>' {
+			tokens = append(tokens, l.MakeGreaterThan())
 		} else {
 			posStart := l.Pos.Copy()
 			char := string(l.CurrentChar)
 			l.Advance()
-			return []*Token{}, NewIllegalCharError(posStart, l.Pos, "'"+char+"'")
+			return []*Token{}, &NewIllegalCharError(posStart, l.Pos, "'"+char+"'").Error
 		}
 	}
 	tokens = append(tokens, NewToken(TT_EOF, nil, l.Pos.Copy(), l.Pos.Copy()))
@@ -155,6 +164,52 @@ func (l *Lexer) MakeNumber() *Token {
 		return NewToken(TT_INT, numStr, posStart, posEnd)
 	}
 	return NewToken(TT_FLOAT, numStr, posStart, posEnd)
+}
+
+func (l *Lexer) MakeNotEquals() (*Token, *Error) {
+	PosStart := l.Pos.Copy()
+	l.Advance()
+
+	if l.CurrentChar == '=' {
+		l.Advance()
+		return NewToken(TT_NE, nil, PosStart, l.Pos), nil
+	}
+	l.Advance()
+	return nil, &NewExpectedCharError(PosStart, l.Pos, "'=' (after '!')").Error
+}
+
+func (l *Lexer) MakeEquals() *Token {
+	TokenType := TT_EQ
+	PosStart := l.Pos.Copy()
+	l.Advance()
+
+	if l.CurrentChar == '=' {
+		l.Advance()
+		TokenType = TT_EE
+	}
+	return NewToken(TokenType, nil, PosStart, l.Pos)
+}
+
+func (l *Lexer) MakeLessThan() *Token {
+	TokenType := TT_LT
+	PosStart := l.Pos.Copy()
+	l.Advance()
+	if l.CurrentChar == '=' {
+		l.Advance()
+		TokenType = TT_LTE
+	}
+	return NewToken(TokenType, nil, PosStart, l.Pos)
+}
+
+func (l *Lexer) MakeGreaterThan() *Token {
+	TokenType := TT_GT
+	PosStart := l.Pos.Copy()
+	l.Advance()
+	if l.CurrentChar == '=' {
+		l.Advance()
+		TokenType = TT_GTE
+	}
+	return NewToken(TokenType, nil, PosStart, l.Pos)
 }
 
 func isDigit(char byte) bool {

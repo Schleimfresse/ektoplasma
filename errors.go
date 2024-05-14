@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"path/filepath"
 	"strings"
 )
 
@@ -31,6 +32,10 @@ func NewIllegalCharError(posStart *Position, posEnd *Position, details string) *
 // NewInvalidSyntaxError creates a new InvalidSyntaxError instance.
 func NewInvalidSyntaxError(posStart *Position, posEnd *Position, details string) *InvalidSyntaxError {
 	return &InvalidSyntaxError{Error{posStart, posEnd, "Invalid Syntax", details}}
+}
+
+func NewExpectedCharError(posStart *Position, posEnd *Position, details string) *ExpectedCharError {
+	return &ExpectedCharError{Error{posStart, posEnd, "Expected Character", details}}
 }
 
 func NewRTError(posStart *Position, posEnd *Position, details string, context *Context) *RuntimeError {
@@ -106,6 +111,30 @@ func stringWithArrows(text string, posStart Position, posEnd Position) string {
 	}
 
 	return strings.ReplaceAll(result.String(), "\t", "")
+}
+
+func (e RuntimeError) generateTraceback() string {
+	var result string
+	pos := e.PosStart
+	ctx := e.Context
+
+	ErrorFilePath, _ := filepath.Abs(pos.Fn)
+
+	for ctx != nil {
+		result = fmt.Sprintf("File %s, line %d, in %s\n%s", pos.Fn, pos.Ln+1, ctx.DisplayName, result)
+		result += fmt.Sprintf("	%s:%v\n", ErrorFilePath, pos.Ln+1)
+		pos = ctx.ParentEntryPos
+		ctx = ctx.Parent
+	}
+
+	return "Traceback (most recent call last):\n" + result
+}
+
+func (e RuntimeError) AsString() string {
+	result := e.generateTraceback()
+	result += fmt.Sprintf("%s%s: %s%s", bold, e.ErrorName, e.Details, reset)
+	result += "\n\n" + stringWithArrows(e.PosStart.Ftxt, *e.PosStart, *e.PosEnd)
+	return result
 }
 
 // min returns the minimum of two integers.

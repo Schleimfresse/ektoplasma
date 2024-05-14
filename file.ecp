@@ -1,2 +1,2 @@
-VAR t = 0
-5 / t
+VAR isSame = 1 == 1
+isSame == true

@@ -58,8 +58,9 @@ func (p *Parser) Advance() *Token {
 // Parse parses the tokens into an abstract syntax tree.
 func (p *Parser) Parse() *ParseResult {
 	res := p.Expr()
-	if res.Error == nil && p.Current.Type != TT_EOF {
-		err := NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '+', '-', '*' or '/'")
+	if res.Error != nil && p.Current.Type != TT_EOF {
+		log.Println("IMP ERR:", res.Error)
+		err := NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'AND' or 'OR'")
 		return res.Failure(err.Error)
 	}
 	return res
@@ -108,7 +109,37 @@ func (p *Parser) Atom() *ParseResult {
 }
 
 func (p *Parser) Power() *ParseResult {
-	return p.BinOp(p.Atom, []TokenTypes{TT_POW})
+	return p.BinOp(p.Atom, []TokenTypeInfo{{TT_POW, nil}})
+}
+
+// ArithExpr parses an arithmetic expression.
+func (p *Parser) ArithExpr() *ParseResult {
+	return p.BinOp(p.Term, []TokenTypeInfo{{TT_PLUS, nil}, {TT_MINUS, nil}})
+}
+
+// CompExpr parses a comparison expression.
+func (p *Parser) CompExpr() *ParseResult {
+	res := ParseResult{}
+
+	if p.Current.Matches(TT_KEYWORD, "NOT") {
+		opTok := p.Current
+		res.RegisterAdvancement()
+		p.Advance()
+
+		node := res.Register(p.CompExpr())
+		if res.Error != nil {
+			return &res
+		}
+		return res.Success(NewUnaryOpNode(opTok, node))
+	}
+
+	node := res.Register(p.BinOp(p.ArithExpr, []TokenTypeInfo{{TT_EE, nil}, {TT_NE, nil}, {TT_LT, nil}, {TT_GT, nil}, {TT_LTE, nil}, {TT_GTE, nil}}))
+	log.Println("COMP:", node)
+	if res.Error != nil {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-', '(' or 'NOT'").Error)
+	}
+
+	return res.Success(node)
 }
 
 // Factor parses a factor.
@@ -120,59 +151,13 @@ func (p *Parser) Factor() *ParseResult {
 		p.Advance() // Advance token index here
 		factor := res.Register(p.Factor())
 		return res.Success(NewUnaryOpNode(tok, factor))
-	} /*else if tok.Type == TT_POW {
-		/*p.Advance()
-		base := res.Register(p.Factor())
-		if res.Error != nil {
-			fmt.Println("1")
-			return res.Failure(NewInvalidSyntaxError(base.PosStart(), base.PosEnd(), "Expected int or float").Error)
-		}
-		exp := res.Register(p.Factor())
-		log.Println(exp)
-		if res.Error != nil {
-			fmt.Println("2")
-			return res.Failure(NewInvalidSyntaxError(exp.PosStart(), exp.PosEnd(), "Expected int or float").Error)
-		}
-		return res.Success(NewBinOpNode(base, tok, exp))
-		return p.BinOp(p.Factor, []TokenTypes{TT_POW})
-	} else if tok.Type == TT_INT || tok.Type == TT_FLOAT {
-		p.Advance() // Advance token index here
-		var err error
-		if tok.Type == TT_FLOAT {
-			tok.Value, err = strconv.ParseFloat(tok.Value.(string), 64)
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-		if tok.Type == TT_INT {
-			value, err := strconv.ParseInt(tok.Value.(string), 10, 64)
-			if err != nil {
-				fmt.Println(err)
-			}
-			tok.Value = int(value)
-		}
-		return res.Success(NewNumberNode(tok))
-	} else if tok.Type == TT_LPAREN {
-		p.Advance() // Advance token index here
-		expr := res.Register(p.Expr())
-		if res.Error != nil {
-			return res
-		}
-		if p.Current.Type == TT_RPAREN {
-			p.Advance() // Advance token index here
-			return res.Success(expr)
-		}
-		err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected ')'")
-		return res.Failure(err.Error)
-	}*/
-	//err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected int or float")
+	}
 
-	//return res.Failure(err.Error)
 	return p.Power()
 }
 
 func (p *Parser) Term() *ParseResult {
-	return p.BinOp(p.Factor, []TokenTypes{TT_MUL, TT_DIV, TT_POW})
+	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}})
 }
 
 // Expr parses an expression.
@@ -212,24 +197,28 @@ func (p *Parser) Expr() *ParseResult {
 		return res.Success(NewVarAssignNode(varName, expr))
 	}
 
-	node := res.Register(p.BinOp(p.Term, []TokenTypes{TT_PLUS, TT_MINUS}))
+	and := "AND"
+	or := "OR"
+	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}))
 
 	if res.Error != nil {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', int, float, identifier, '+', '-' or '('").Error)
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
 	}
 
 	return res.Success(node)
 }
 
-// BinOp parses a binary operation.
-func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypes) *ParseResult {
+// / BinOp parses a binary operation.
+func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypeInfo) *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	left := res.Register(funcParser())
 	if res.Error != nil {
 		return res
 	}
 
-	for ContainsType(ops, p.Current.Type) {
+	log.Println("BinOp: ", ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value))
+
+	for ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value) {
 		opTok := p.Current
 		res.RegisterAdvancement()
 		p.Advance()
@@ -246,11 +235,15 @@ func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypes) *ParseR
 	return res.Success(left)
 }
 
-// ContainsType checks if the token type exists in the list.
-func ContainsType(types []TokenTypes, typ TokenTypes) bool {
+// ContainsTypeOrValue checks if the token type and value exist in the list of type-value pairs.
+func ContainsTypeOrValue(types []TokenTypeInfo, typ TokenTypes, val interface{}) bool {
 	for _, t := range types {
-		if t == typ {
-			return true
+		if val != nil {
+			if t.Type == typ || *t.Value == val.(string) {
+				return true
+			} else if t.Type == typ {
+				return true
+			}
 		}
 	}
 	return false

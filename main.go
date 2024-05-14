@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strings"
 )
 
-// ecp Ektoplasma
+// ecp Ektoplasma (Ektoplasma Code Program)
 
 const (
 	TT_INT        TokenTypes = "INT"
@@ -22,10 +21,16 @@ const (
 	TT_LPAREN     TokenTypes = "LPAREN"
 	TT_RPAREN     TokenTypes = "RPAREN"
 	TT_POW        TokenTypes = "POW"
+	TT_EE         TokenTypes = "EE"
+	TT_NE         TokenTypes = "NE"
+	TT_LT         TokenTypes = "LT"
+	TT_GT         TokenTypes = "GT"
+	TT_LTE        TokenTypes = "LTE"
+	TT_GTE        TokenTypes = "GTE"
 	TT_EOF        TokenTypes = "EOF"
 )
 
-var KEYWORDS = []string{"VAR"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT"}
 var GlobalSymbolTable = NewSymbolTable()
 
 func run(fileName, text string) (interface{}, *RuntimeError) {
@@ -63,6 +68,9 @@ func run(fileName, text string) (interface{}, *RuntimeError) {
 
 func main() {
 	GlobalSymbolTable.Set("null", NewNumber(0))
+	GlobalSymbolTable.Set("false", NewNumber(0))
+	GlobalSymbolTable.Set("true", NewNumber(1))
+
 	fileName := "file.ecp"
 	file, err := os.Open(fileName)
 	if err != nil {
@@ -77,12 +85,6 @@ func main() {
 
 		// Process the line
 		fmt.Println("Processing line:", line)
-
-		// Split the line into words if needed
-		words := strings.Fields(line)
-		for _, word := range words {
-			fmt.Println("Word:", word)
-		}
 
 		// Run your function for each line
 		result, err := run(fileName, line)

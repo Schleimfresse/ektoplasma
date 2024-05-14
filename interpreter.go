@@ -7,7 +7,7 @@ import (
 )
 
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
-	//log.Println(reflect.TypeOf(node))
+	log.Println("NODE HEADER:", reflect.TypeOf(node))
 	switch n := node.(type) {
 	case *UnaryOpNode:
 		return i.visit_UnaryOpNode(*n, context)
@@ -65,6 +65,8 @@ func (i *Interpreter) visit_BinOpNode(node BinOpNode, context *Context) *RTResul
 	var result *Number
 	var err *RuntimeError
 
+	log.Println("BinOP: ", node.OpTok.Type)
+
 	// get the operation type and use the left and the right node from the operation symbol as values
 	switch node.OpTok.Type {
 	case TT_PLUS:
@@ -77,6 +79,24 @@ func (i *Interpreter) visit_BinOpNode(node BinOpNode, context *Context) *RTResul
 		result, err = left.DividedBy(right)
 	case TT_POW:
 		result, err = left.PowedBy(right)
+	case TT_EE:
+		result, err = left.GetComparisonEq(right)
+	case TT_NE:
+		result, err = left.GetComparisonNe(right)
+	case TT_LT:
+		result, err = left.GetComparisonLt(right)
+	case TT_GT:
+		result, err = left.GetComparisonGt(right)
+	case TT_LTE:
+		result, err = left.GetComparisonLte(right)
+	case TT_GTE:
+		result, err = left.GetComparisonGte(right)
+	case TT_KEYWORD:
+		if node.OpTok.Value == "AND" {
+			result, err = left.AndedBy(right)
+		} else if node.OpTok.Value == "OR" {
+			result, err = left.OredBy(right)
+		}
 	default:
 		return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid operation", context))
 	}
@@ -114,10 +134,16 @@ func (i *Interpreter) visit_UnaryOpNode(node UnaryOpNode, context *Context) *RTR
 		if err != nil {
 			return res.Failure(err)
 		}
+	} else if node.OpTok.Matches(TT_KEYWORD, "NOT") {
+		result, err = num.Notted()
 	}
 
 	log.Println(context)
-	return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
+	if err != nil {
+		return res.Failure(err)
+	} else {
+		return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
+	}
 }
 
 // visitVarAccessNode visits a VarAccessNode and retrieves its value from the symbol table.
