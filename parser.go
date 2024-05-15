@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"strconv"
 )
 
@@ -66,10 +67,88 @@ func (p *Parser) Parse() *ParseResult {
 	return res
 }
 
+func (p *Parser) IfExpr() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+	var cases []*IfCaseNode
+	var elseCase *ParseResult
+
+	if !p.Current.Matches(TT_KEYWORD, "IF") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'IF'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	condition := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	log.Println("condition from IdExpr: ", condition)
+
+	if !p.Current.Matches(TT_KEYWORD, "THEN") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'THEN'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	expr := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	cases = append(cases, NewIfCaseNode(condition, expr))
+
+	for p.Current.Matches(TT_KEYWORD, "ELIF") {
+		res.RegisterAdvancement()
+		p.Advance()
+
+		condition := res.Register(p.Expr())
+		if res.Error != nil {
+			return res
+		}
+
+		if !p.Current.Matches(TT_KEYWORD, "THEN") {
+			return res.Failure(NewInvalidSyntaxError(
+				p.Current.PosStart, p.Current.PosEnd,
+				"Expected 'THEN'",
+			).Error)
+		}
+
+		res.RegisterAdvancement()
+		p.Advance()
+
+		expr := res.Register(p.Expr())
+		if res.Error != nil {
+			return res
+		}
+		cases = append(cases, NewIfCaseNode(condition, expr))
+	}
+
+	if p.Current.Matches(TT_KEYWORD, "ELSE") {
+		res.RegisterAdvancement()
+		p.Advance()
+		log.Println("ELSE TT:", p.Current)
+		elseCase = res.Success(res.Register(p.Expr()))
+		log.Println("elseCase", elseCase.Node, reflect.TypeOf(elseCase.Node))
+		if res.Error != nil {
+			return res
+		}
+	}
+
+	return res.Success(NewIfNode(cases, elseCase))
+}
+
 func (p *Parser) Atom() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	tok := p.Current
-
 	if tok.Type == TT_INT || tok.Type == TT_FLOAT {
 		p.Advance() // Advance token index here
 		var err error
@@ -103,6 +182,12 @@ func (p *Parser) Atom() *ParseResult {
 		}
 		err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected ')'")
 		return res.Failure(err.Error)
+	} else if tok.Matches(TT_KEYWORD, "IF") {
+		IfExpr := res.Register(p.IfExpr())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(IfExpr)
 	}
 	log.Println(p.Current.Type, p.Current.Value, p.Current.PosStart, p.Current.PosEnd)
 	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-' or '('").Error)
@@ -119,7 +204,7 @@ func (p *Parser) ArithExpr() *ParseResult {
 
 // CompExpr parses a comparison expression.
 func (p *Parser) CompExpr() *ParseResult {
-	res := ParseResult{}
+	res := ParseResult{AdvanceCount: 0}
 
 	if p.Current.Matches(TT_KEYWORD, "NOT") {
 		opTok := p.Current
@@ -162,8 +247,8 @@ func (p *Parser) Term() *ParseResult {
 
 // Expr parses an expression.
 func (p *Parser) Expr() *ParseResult {
-	res := ParseResult{}
-	log.Println(p.Current.Matches(TT_KEYWORD, "VAR"), p.Current)
+	res := ParseResult{AdvanceCount: 0}
+
 	if p.Current.Matches(TT_KEYWORD, "VAR") {
 		res.RegisterAdvancement()
 		p.Advance()
@@ -179,7 +264,7 @@ func (p *Parser) Expr() *ParseResult {
 		varName := p.Current
 		res.RegisterAdvancement()
 		p.Advance()
-		log.Println("ADVANCE EP4:", p.Current)
+
 		if p.Current.Type != TT_EQ {
 			return res.Failure(NewInvalidSyntaxError(
 				p.Current.PosStart, p.Current.PosEnd,
@@ -200,7 +285,7 @@ func (p *Parser) Expr() *ParseResult {
 	and := "AND"
 	or := "OR"
 	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}))
-
+	log.Println("NODE in expr:", node)
 	if res.Error != nil {
 		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
 	}
@@ -216,36 +301,37 @@ func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypeInfo) *Par
 		return res
 	}
 
-	log.Println("BinOp: ", ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value))
-
 	for ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value) {
+		//log.Println("ACCEPTED", ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value), p.Current.Type, p.Current.Value)
 		opTok := p.Current
 		res.RegisterAdvancement()
 		p.Advance()
 
 		// Parse the right side of the expression
 		right := res.Register(funcParser())
+
 		if res.Error != nil {
 			return res
 		}
 		left = NewBinOpNode(left, opTok, right)
-		fmt.Println("LEFT:", left)
+
+		//log.Println("LEFT TOTAL:", left.(*BinOpNode).LeftNode, left.(*BinOpNode).OpTok, left.(*BinOpNode).RightNode)
 	}
+	//log.Println("ACCEPTED 1", ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value), p.Current.Type, p.Current.Value)
 
 	return res.Success(left)
 }
 
 // ContainsTypeOrValue checks if the token type and value exist in the list of type-value pairs.
 func ContainsTypeOrValue(types []TokenTypeInfo, typ TokenTypes, val interface{}) bool {
-	log.Println(val)
 	for _, t := range types {
-		log.Println(t.Type, typ)
 		if val != nil {
-			if *t.Value == val.(string) {
-				return true
+			if t.Value != nil {
+				if *t.Value == val.(string) && t.Type == typ {
+					return true
+				}
 			}
-		}
-		if t.Type == typ {
+		} else if t.Type == typ {
 			return true
 		}
 	}

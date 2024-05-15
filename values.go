@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"math"
 	"reflect"
@@ -57,7 +56,6 @@ func (n *Number) SubtractedBy(other *Number) (*Number, *RuntimeError) {
 
 // MultedBy performs multiplication with another number.
 func (n *Number) MultipliedBy(other *Number) (*Number, *RuntimeError) {
-	fmt.Println("FSD:", n.Value, other.Value, reflect.TypeOf(n.Value), reflect.TypeOf(other.Value))
 	if n.Value != nil && other.Value != nil {
 		switch nVal := n.Value.(type) {
 		case int:
@@ -217,6 +215,10 @@ func (n *Number) OredBy(other *Number) (*Number, *RuntimeError) {
 
 func (n *Number) Notted() (*Number, *RuntimeError) {
 	return NewNumber(ConvertBoolToInt(n.Value == 0)).SetContext(n.Context), nil
+}
+
+func (n *Number) IsTrue() bool {
+	return n.Value != 0
 }
 
 func NewNumber(value interface{}) *Number {

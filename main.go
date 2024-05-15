@@ -30,8 +30,9 @@ const (
 	TT_EOF        TokenTypes = "EOF"
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF"}
 var GlobalSymbolTable = NewSymbolTable()
+var lineTEMP int
 
 func run(fileName, text string) (interface{}, *RuntimeError) {
 	lexer := NewLexer(fileName, text)
@@ -88,15 +89,13 @@ func main() {
 
 		// Run your function for each line
 		result, err := run(fileName, line)
-		if err != nil {
-			fmt.Println(err.AsString())
-			continue
-		}
+
 		if err != nil {
 			fmt.Println(err)
-		} else {
-			fmt.Println(result)
+		} else if result != nil {
+			fmt.Println(result.(*Number).Value)
 		}
+		lineTEMP++
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -104,3 +103,5 @@ func main() {
 		return
 	}
 }
+
+// TODO return null wenn if nichts ausgibt

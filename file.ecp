@@ -1,1 +1,2 @@
-5 < 6
+VAR age = 19
+VAR price = IF age < 10 THEN 40 ELSE

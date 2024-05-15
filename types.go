@@ -144,3 +144,15 @@ type SymbolTable struct {
 	symbols map[string]interface{}
 	parent  *SymbolTable
 }
+
+type IfCaseNode struct {
+	Condition Node
+	Expr      Node
+}
+
+type IfNode struct {
+	Cases         []*IfCaseNode
+	ElseCase      *NumberNode
+	PositionStart *Position
+	PositionEnd   *Position
+}

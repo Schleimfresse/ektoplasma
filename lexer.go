@@ -1,7 +1,5 @@
 package main
 
-import "log"
-
 // Matches checks if the token matches the given type and value
 func (t Token) Matches(tType TokenTypes, value string) bool {
 	return t.Type == tType && t.Value == value
@@ -45,7 +43,7 @@ func NewLexer(fn, text string) *Lexer {
 	lexer := &Lexer{
 		Fn:   fn,
 		Text: text,
-		Pos:  NewPosition(-1, 0, -1, fn, text),
+		Pos:  NewPosition(-1, lineTEMP, -1, fn, text),
 	}
 	lexer.Advance()
 	return lexer
@@ -128,7 +126,6 @@ func (l *Lexer) MakeIdentifier() *Token {
 	posEnd := l.Pos.Copy().Advance(l.CurrentChar)
 	posEnd.Col = posEnd.Col - 1
 	posEnd.Idx = posEnd.Idx - 1
-	log.Println("LEXER:", idStr)
 	tokenType := TT_IDENTIFIER
 	if isKeyword(idStr) {
 		tokenType = TT_KEYWORD

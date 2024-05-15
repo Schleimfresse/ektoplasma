@@ -18,8 +18,13 @@ func NewError(posStart *Position, posEnd *Position, errorName string, details st
 
 // AsString converts the error to a string format.
 func (e *Error) AsString() string {
+	log.Println(e.PosStart)
+	pos := e.PosStart
+	ErrorFilePath, _ := filepath.Abs(pos.Fn)
+
 	result := fmt.Sprintf("%s%s: %s%s\n", bold, e.ErrorName, e.Details, reset)
-	result += fmt.Sprintf("File %s, line %d\n\n", e.PosStart.Fn, e.PosStart.Ln+1)
+	result += fmt.Sprintf("File %s, line %d\n", e.PosStart.Fn, e.PosStart.Ln+1)
+	result += fmt.Sprintf(" %s:%v\n\n", ErrorFilePath, pos.Ln+1)
 	result += stringWithArrows(e.PosStart.Ftxt, *e.PosStart, *e.PosEnd)
 	return result
 }
@@ -122,7 +127,7 @@ func (e RuntimeError) generateTraceback() string {
 
 	for ctx != nil {
 		result = fmt.Sprintf("File %s, line %d, in %s\n%s", pos.Fn, pos.Ln+1, ctx.DisplayName, result)
-		result += fmt.Sprintf("	%s:%v\n", ErrorFilePath, pos.Ln+1)
+		result += fmt.Sprintf(" %s:%v\n", ErrorFilePath, pos.Ln+1)
 		pos = ctx.ParentEntryPos
 		ctx = ctx.Parent
 	}

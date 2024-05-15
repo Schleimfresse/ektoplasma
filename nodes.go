@@ -47,6 +47,37 @@ func NewVarAssignNode(varNameTok *Token, valueNode Node) *VarAssignNode {
 	return &VarAssignNode{varNameTok, valueNode, varNameTok.PosStart, varNameTok.PosEnd}
 }
 
+func NewIfCaseNode(condition, expr Node) *IfCaseNode {
+	return &IfCaseNode{condition, expr}
+}
+
+func NewIfNode(cases []*IfCaseNode, elseCase *ParseResult) *IfNode {
+	var posEnd *Position
+
+	if elseCase != nil {
+		posEnd = elseCase.Node.PosEnd()
+	} else {
+		lastCondition := cases[len(cases)-1].Condition
+		posEnd = lastCondition.PosEnd()
+	}
+	return &IfNode{cases, elseCase.Node.(*NumberNode), cases[0].Expr.PosStart(), posEnd}
+}
+
+// String returns the string representation of the UnaryOpNode.
+func (i *IfNode) String() string {
+	return ""
+}
+
+// PosStart returns the start position of the number node.
+func (i *IfNode) PosStart() *Position {
+	return i.PositionStart
+}
+
+// PosEnd returns the end position of the number node.
+func (i *IfNode) PosEnd() *Position {
+	return i.PositionEnd
+}
+
 // String returns the string representation of the UnaryOpNode.
 func (v *VarAssignNode) String() string {
 	return fmt.Sprintf("(%v, %v)", v.VarNameTok, v.ValueNode)

@@ -7,18 +7,20 @@ import (
 )
 
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
-	log.Println("NODE HEADER:", reflect.TypeOf(node))
+	//log.Println("NODE HEADER:", reflect.TypeOf(node))
 	switch n := node.(type) {
 	case *UnaryOpNode:
-		return i.visit_UnaryOpNode(*n, context)
+		return i.visitUnaryOpNode(*n, context)
 	case *BinOpNode:
-		return i.visit_BinOpNode(*n, context)
+		return i.visitBinOpNode(*n, context)
 	case *NumberNode:
-		return i.visit_NumberNode(*n, context)
+		return i.visitNumberNode(*n, context)
 	case *VarAccessNode:
 		return i.visitVarAccessNode(*n, context)
 	case *VarAssignNode:
 		return i.visitVarAssignNode(*n, context)
+	case *IfNode:
+		return i.visitIfNode(*n, context)
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -31,14 +33,14 @@ func (i *Interpreter) NoVisitMethod(node Node, context *Context) *RTResult {
 	return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), errMsg, context))
 }
 
-func (i *Interpreter) visit_NumberNode(node NumberNode, context *Context) *RTResult {
-	fmt.Println(node.Tok, reflect.TypeOf(node.Tok.Value))
+func (i *Interpreter) visitNumberNode(node NumberNode, context *Context) *RTResult {
+	//fmt.Println(node.Tok, reflect.TypeOf(node.Tok.Value))
 	return NewRTResult().Success(
 		NewNumber(node.Value).SetContext(context).SetPos(node.PosStart(), node.PosEnd()),
 	)
 }
 
-func (i *Interpreter) visit_BinOpNode(node BinOpNode, context *Context) *RTResult {
+func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult {
 	res := NewRTResult()
 
 	leftRTValue := i.visit(node.LeftNode, context)
@@ -65,7 +67,7 @@ func (i *Interpreter) visit_BinOpNode(node BinOpNode, context *Context) *RTResul
 	var result *Number
 	var err *RuntimeError
 
-	log.Println("BinOP: ", node.OpTok.Type)
+	//log.Println("BinOP:", node.OpTok.Type)
 
 	// get the operation type and use the left and the right node from the operation symbol as values
 	switch node.OpTok.Type {
@@ -100,15 +102,15 @@ func (i *Interpreter) visit_BinOpNode(node BinOpNode, context *Context) *RTResul
 	default:
 		return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid operation", context))
 	}
-	fmt.Println("RESULTed ", result, right.Value, left.Value, err)
+	//fmt.Println("RESULTed ", result, right.Value, left.Value, err)
 	if err != nil {
 		return res.Failure(err)
 	}
-	fmt.Println("POS:", node.PosStart(), node.PosEnd())
+	//fmt.Println("POS:", node.PosStart(), node.PosEnd())
 	return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
-func (i *Interpreter) visit_UnaryOpNode(node UnaryOpNode, context *Context) *RTResult {
+func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTResult {
 	res := NewRTResult()
 	numValue := res.Register(i.visit(node.Node, context))
 	if res.Error != nil {
@@ -138,7 +140,6 @@ func (i *Interpreter) visit_UnaryOpNode(node UnaryOpNode, context *Context) *RTR
 		result, err = num.Notted()
 	}
 
-	log.Println(context)
 	if err != nil {
 		return res.Failure(err)
 	} else {
@@ -161,7 +162,6 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 			context))
 	}
 
-	// TODO
 	value = f.SetPos(node.PosStart(), node.PosEnd())
 	return res.Success(value)
 }
@@ -175,9 +175,47 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 	if res.Error != nil {
 		return res
 	}
-	log.Println("IMP:", reflect.TypeOf(value), value)
+	//log.Println("IMP:", reflect.TypeOf(value), value)
 	context.SymbolTable.Set(varName.(string), value)
 	return res.Success(value)
+}
+
+// TODO schülerzeitung; bei ELSE INF LOOP (1 GB ram exceeded)
+
+func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	log.Println("WHAT;", reflect.TypeOf(node.ElseCase), node.ElseCase)
+
+	for _, ifcase := range node.Cases {
+
+		value := res.Register(i.visit(ifcase.Condition, context))
+		if res.Error != nil {
+			return res
+		}
+
+		conditionValue := value.(*Number)
+		//log.Println("conditionValue", conditionValue.IsTrue(), ifcase.Condition, ifcase.Expr)
+		if conditionValue.IsTrue() {
+			exprValue := res.Register(i.visit(ifcase.Expr, context))
+			//log.Println(exprValue)
+			if res.Error != nil {
+				return res
+			}
+			return res.Success(exprValue)
+		}
+	}
+
+	if node.ElseCase != nil {
+		//log.Println("ELSE: ", reflect.TypeOf(node.ElseCase.Node), node.ElseCase.Node)
+		elseValue := res.Register(i.visit(node.ElseCase, context))
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(elseValue)
+	}
+
+	return res.Success(nil)
 }
 
 // NewRTResult creates a new RTResult instance.
