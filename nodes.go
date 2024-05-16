@@ -63,6 +63,57 @@ func NewIfNode(cases []*IfCaseNode, elseCase *ParseResult) *IfNode {
 	return &IfNode{cases, elseCase.Node.(*NumberNode), cases[0].Expr.PosStart(), posEnd}
 }
 
+func NewForNode(varNameTok *Token, startValueNode, endValueNode, stepValueNode, bodyNode Node) *ForNode {
+	return &ForNode{
+		VarNameTok:     varNameTok,
+		StartValueNode: startValueNode,
+		EndValueNode:   endValueNode,
+		StepValueNode:  stepValueNode,
+		BodyNode:       bodyNode,
+		PositionStart:  varNameTok.PosStart,
+		PositionEnd:    bodyNode.PosEnd(),
+	}
+}
+
+func NewWhileNode(conditionNode, bodyNode Node) *WhileNode {
+	return &WhileNode{
+		ConditionNode: conditionNode,
+		BodyNode:      bodyNode,
+		PositionStart: conditionNode.PosStart(),
+		PositionEnd:   bodyNode.PosEnd(),
+	}
+}
+
+// String returns the string representation of the UnaryOpNode.
+func (w *WhileNode) String() string {
+	return fmt.Sprintf("(%v, %v)", w.ConditionNode, w.BodyNode)
+}
+
+// PosStart returns the start position of the number node.
+func (w *WhileNode) PosStart() *Position {
+	return w.PositionStart
+}
+
+// PosEnd returns the end position of the number node.
+func (w *WhileNode) PosEnd() *Position {
+	return w.PositionEnd
+}
+
+// String returns the string representation of the UnaryOpNode.
+func (f *ForNode) String() string {
+	return fmt.Sprintf("(%v, %v)", f.BodyNode, f.EndValueNode)
+}
+
+// PosStart returns the start position of the number node.
+func (f *ForNode) PosStart() *Position {
+	return f.PositionStart
+}
+
+// PosEnd returns the end position of the number node.
+func (f *ForNode) PosEnd() *Position {
+	return f.PositionEnd
+}
+
 // String returns the string representation of the UnaryOpNode.
 func (i *IfNode) String() string {
 	return ""

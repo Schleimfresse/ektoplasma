@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 )
 
@@ -21,6 +20,11 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitVarAssignNode(*n, context)
 	case *IfNode:
 		return i.visitIfNode(*n, context)
+	case *ForNode:
+		return i.visitForNode(*n, context)
+	case *WhileNode:
+		return i.visitWhileNode(*n, context)
+
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -34,7 +38,6 @@ func (i *Interpreter) NoVisitMethod(node Node, context *Context) *RTResult {
 }
 
 func (i *Interpreter) visitNumberNode(node NumberNode, context *Context) *RTResult {
-	//fmt.Println(node.Tok, reflect.TypeOf(node.Tok.Value))
 	return NewRTResult().Success(
 		NewNumber(node.Value).SetContext(context).SetPos(node.PosStart(), node.PosEnd()),
 	)
@@ -54,20 +57,12 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 	if res.Error != nil {
 		return res
 	}
-	/*fmt.Println("VALS:", rightRTValue.Value, leftRTValue.Value, reflect.TypeOf(leftRTValue.Value))
-	left := NewNumber(leftRTValue.Value)
-	fmt.Println("f", node.LeftNode, reflect.TypeOf(node.LeftNode))
-	fmt.Println("LEFT 2", reflect.TypeOf(node))
-	fmt.Println("left n VAL:", left.Value)
-	right := NewNumber(rightRTValue.Value)*/
 
 	left := leftRTValue.Value.(*Number)
 	right := rightRTValue.Value.(*Number)
 
 	var result *Number
 	var err *RuntimeError
-
-	//log.Println("BinOP:", node.OpTok.Type)
 
 	// get the operation type and use the left and the right node from the operation symbol as values
 	switch node.OpTok.Type {
@@ -102,11 +97,9 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 	default:
 		return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid operation", context))
 	}
-	//fmt.Println("RESULTed ", result, right.Value, left.Value, err)
 	if err != nil {
 		return res.Failure(err)
 	}
-	//fmt.Println("POS:", node.PosStart(), node.PosEnd())
 	return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
@@ -154,7 +147,6 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 
 	value, exists := context.SymbolTable.Get(varName.(string))
 	f := value.(*Number)
-
 	if !exists {
 		return res.Failure(NewRTError(
 			node.PosStart(), node.PosEnd(),
@@ -175,17 +167,13 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 	if res.Error != nil {
 		return res
 	}
-	//log.Println("IMP:", reflect.TypeOf(value), value)
+
 	context.SymbolTable.Set(varName.(string), value)
 	return res.Success(value)
 }
 
-// TODO schülerzeitung; bei ELSE INF LOOP (1 GB ram exceeded)
-
 func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 	res := NewRTResult()
-
-	log.Println("WHAT;", reflect.TypeOf(node.ElseCase), node.ElseCase)
 
 	for _, ifcase := range node.Cases {
 
@@ -195,10 +183,8 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 		}
 
 		conditionValue := value.(*Number)
-		//log.Println("conditionValue", conditionValue.IsTrue(), ifcase.Condition, ifcase.Expr)
 		if conditionValue.IsTrue() {
 			exprValue := res.Register(i.visit(ifcase.Expr, context))
-			//log.Println(exprValue)
 			if res.Error != nil {
 				return res
 			}
@@ -207,12 +193,93 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 	}
 
 	if node.ElseCase != nil {
-		//log.Println("ELSE: ", reflect.TypeOf(node.ElseCase.Node), node.ElseCase.Node)
 		elseValue := res.Register(i.visit(node.ElseCase, context))
 		if res.Error != nil {
 			return res
 		}
 		return res.Success(elseValue)
+	}
+
+	return res.Success(nil)
+}
+
+func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	start := res.Register(i.visit(node.StartValueNode, context))
+	if res.Error != nil {
+		return res
+	}
+
+	end := res.Register(i.visit(node.EndValueNode, context))
+	if res.Error != nil {
+		return res
+	}
+
+	var stepValue *Number
+	if node.StepValueNode != nil {
+		stepValue = res.Register(i.visit(node.StepValueNode, context)).(*Number)
+		if res.Error != nil {
+			return res
+		}
+	} else {
+		stepValue = NewNumber(1)
+	}
+
+	var iVal int
+	var endValue int
+
+	if IsInt(start.(*Number).Value) {
+		iVal = start.(*Number).Value.(int)
+	} else {
+		startNum := start.(*Number)
+		return res.Failure(NewRTError(startNum.PosStart, startNum.PosEnd, fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(startNum.Value)), startNum.Context))
+	}
+	if IsInt(end.(*Number).Value) {
+		endValue = end.(*Number).Value.(int)
+	} else {
+		endNum := end.(*Number)
+		return res.Failure(NewRTError(endNum.PosStart, endNum.PosEnd, fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(endNum.Value)), endNum.Context))
+	}
+
+	var condition func() bool
+	if stepValue.Value.(int) >= 0 {
+		condition = func() bool { return iVal < endValue }
+	} else {
+		condition = func() bool { return iVal > endValue }
+	}
+
+	for condition() {
+		context.SymbolTable.Set(node.VarNameTok.Value.(string), NewNumber(iVal))
+
+		iVal += stepValue.Value.(int)
+
+		res.Register(i.visit(node.BodyNode, context))
+		if res.Error != nil {
+			return res
+		}
+	}
+
+	return res.Success(nil)
+}
+
+func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	for {
+		condition := res.Register(i.visit(node.ConditionNode, context)).(*Number)
+		if res.Error != nil {
+			return res
+		}
+
+		if !condition.IsTrue() {
+			break
+		}
+
+		res.Register(i.visit(node.BodyNode, context))
+		if res.Error != nil {
+			return res
+		}
 	}
 
 	return res.Success(nil)
@@ -277,4 +344,13 @@ func (st *SymbolTable) Set(name string, value interface{}) {
 // Remove removes the entry associated with the name from the symbol table.
 func (st *SymbolTable) Remove(name string) {
 	delete(st.symbols, name)
+}
+
+func IsInt(value interface{}) bool {
+	switch value.(type) {
+	case int:
+		return true
+	default:
+		return false
+	}
 }

@@ -156,3 +156,20 @@ type IfNode struct {
 	PositionStart *Position
 	PositionEnd   *Position
 }
+
+type WhileNode struct {
+	ConditionNode Node
+	BodyNode      Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type ForNode struct {
+	VarNameTok     *Token
+	StartValueNode Node
+	EndValueNode   Node
+	StepValueNode  Node
+	BodyNode       Node
+	PositionStart  *Position
+	PositionEnd    *Position
+}

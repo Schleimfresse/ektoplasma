@@ -1,9 +1,7 @@
 package main
 
 import (
-	"log"
 	"math"
-	"reflect"
 )
 
 // SetPos sets the position of the number.
@@ -22,7 +20,6 @@ func (n *Number) SetContext(context *Context) *Number {
 // AddedTo performs addition with another number.
 func (n *Number) AddedTo(other *Number) (*Number, *RuntimeError) {
 	if n.Value != nil && other.Value != nil {
-		log.Println(n.Value, other.Value, reflect.TypeOf(n.Value), reflect.TypeOf(other.Value))
 		switch nVal := n.Value.(type) {
 		case int:
 			if otherIsInt, ok := other.Value.(int); ok {
@@ -129,19 +126,22 @@ func (n *Number) GetComparisonLt(other *Number) (*Number, *RuntimeError) {
 	if other != nil {
 		switch nVal := n.Value.(type) {
 		case int:
-			if otherIsInt, ok := other.Value.(int); ok {
-				return NewNumber(ConvertBoolToInt(n.Value.(int) < otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
-			} else if otherIsFloat, ok := other.Value.(float64); ok {
-				return NewNumber(ConvertBoolToInt(float64(nVal) < otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			switch otherVal := other.Value.(type) {
+			case int:
+				return NewNumber(ConvertBoolToInt(n.Value.(int) < otherVal)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			case float64:
+				return NewNumber(ConvertBoolToInt(float64(nVal) < otherVal)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
 			}
 		case float64:
-			if otherIsInt, ok := other.Value.(int); ok {
-				return NewNumber(ConvertBoolToInt(n.Value.(int) < otherIsInt)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
-			} else if otherIsFloat, ok := other.Value.(float64); ok {
-				return NewNumber(ConvertBoolToInt(nVal < otherIsFloat)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			switch otherVal := other.Value.(type) {
+			case int:
+				return NewNumber(ConvertBoolToInt(int(nVal) < otherVal)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
+			case float64:
+				return NewNumber(ConvertBoolToInt(nVal < otherVal)).SetContext(n.Context).SetPos(n.PosStart, n.PosEnd), nil
 			}
 		}
 	}
+
 	return nil, NewRTError(n.PosStart, n.PosEnd, "Invalid operation", n.Context)
 }
 

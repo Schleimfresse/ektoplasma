@@ -30,7 +30,7 @@ const (
 	TT_EOF        TokenTypes = "EOF"
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE"}
 var GlobalSymbolTable = NewSymbolTable()
 var lineTEMP int
 
@@ -91,9 +91,9 @@ func main() {
 		result, err := run(fileName, line)
 
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println(err.AsString())
 		} else if result != nil {
-			fmt.Println(result.(*Number).Value)
+			fmt.Println("FINAL RESULT: ", result.(*Number).Value)
 		}
 		lineTEMP++
 	}

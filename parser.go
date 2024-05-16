@@ -146,6 +146,125 @@ func (p *Parser) IfExpr() *ParseResult {
 	return res.Success(NewIfNode(cases, elseCase))
 }
 
+func (p *Parser) ForExpr() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+
+	if !p.Current.Matches(TT_KEYWORD, "FOR") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'FOR'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if p.Current.Type != TT_IDENTIFIER {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected identifier",
+		).Error)
+	}
+
+	varName := p.Current
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if p.Current.Type != TT_EQ {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected '='",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	startValue := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	if !p.Current.Matches(TT_KEYWORD, "TO") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'TO'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	endValue := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	var stepValue Node
+	if p.Current.Matches(TT_KEYWORD, "STEP") {
+		res.RegisterAdvancement()
+		p.Advance()
+
+		stepValue = res.Register(p.Expr())
+		if res.Error != nil {
+			return res
+		}
+	}
+
+	if !p.Current.Matches(TT_KEYWORD, "THEN") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'THEN'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	body := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	return res.Success(NewForNode(varName, startValue, endValue, stepValue, body))
+}
+
+func (p *Parser) WhileExpr() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+
+	if !p.Current.Matches(TT_KEYWORD, "WHILE") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'WHILE'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	condition := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	if !p.Current.Matches(TT_KEYWORD, "THEN") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'THEN'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	body := res.Register(p.Expr())
+	if res.Error != nil {
+		return res
+	}
+
+	return res.Success(NewWhileNode(condition, body))
+}
+
 func (p *Parser) Atom() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	tok := p.Current
@@ -188,6 +307,18 @@ func (p *Parser) Atom() *ParseResult {
 			return res
 		}
 		return res.Success(IfExpr)
+	} else if tok.Matches(TT_KEYWORD, "FOR") {
+		IfExpr := res.Register(p.ForExpr())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(IfExpr)
+	} else if tok.Matches(TT_KEYWORD, "WHILE") {
+		WhileExpr := res.Register(p.WhileExpr())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(WhileExpr)
 	}
 	log.Println(p.Current.Type, p.Current.Value, p.Current.PosStart, p.Current.PosEnd)
 	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-' or '('").Error)
