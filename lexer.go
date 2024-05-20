@@ -80,7 +80,7 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			tokens = append(tokens, NewToken(TT_MUL, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == '/' {
-			tokens = append(tokens, NewToken(TT_DIV, nil, l.Pos.Copy(), l.Pos.Copy()))
+			tokens = append(tokens, l.DivisionOrComment())
 			l.Advance()
 		} else if l.CurrentChar == '(' {
 			tokens = append(tokens, NewToken(TT_LPAREN, nil, l.Pos.Copy(), l.Pos.Copy()))
@@ -98,11 +98,15 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			}
 			tokens = append(tokens, token)
 		} else if l.CurrentChar == '=' {
-			tokens = append(tokens, l.MakeEquals())
+			tokens = append(tokens, l.MakeEqualsOrArrow())
 		} else if l.CurrentChar == '<' {
 			tokens = append(tokens, l.MakeLessThan())
 		} else if l.CurrentChar == '>' {
 			tokens = append(tokens, l.MakeGreaterThan())
+
+		} else if l.CurrentChar == ',' {
+			tokens = append(tokens, NewToken(TT_COMMA, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
 		} else {
 			posStart := l.Pos.Copy()
 			char := string(l.CurrentChar)
@@ -175,7 +179,7 @@ func (l *Lexer) MakeNotEquals() (*Token, *Error) {
 	return nil, &NewExpectedCharError(PosStart, l.Pos, "'=' (after '!')").Error
 }
 
-func (l *Lexer) MakeEquals() *Token {
+func (l *Lexer) MakeEqualsOrArrow() *Token {
 	TokenType := TT_EQ
 	PosStart := l.Pos.Copy()
 	l.Advance()
@@ -183,6 +187,9 @@ func (l *Lexer) MakeEquals() *Token {
 	if l.CurrentChar == '=' {
 		l.Advance()
 		TokenType = TT_EE
+	} else if l.CurrentChar == '>' {
+		l.Advance()
+		TokenType = TT_ARROW
 	}
 	return NewToken(TokenType, nil, PosStart, l.Pos)
 }
@@ -207,6 +214,21 @@ func (l *Lexer) MakeGreaterThan() *Token {
 		TokenType = TT_GTE
 	}
 	return NewToken(TokenType, nil, PosStart, l.Pos)
+}
+
+func (l *Lexer) DivisionOrComment() *Token {
+	posStart := l.Pos.Copy()
+	tokenType := TT_DIV
+	l.Advance()
+
+	/*if l.CurrentChar == '/' {
+		charLeft := len(l.Text) - l.Pos.Idx
+		for _ = range charLeft {
+			l.Advance()
+		}
+	}*/
+
+	return &Token{tokenType, nil, posStart, l.Pos}
 }
 
 func isDigit(char byte) bool {

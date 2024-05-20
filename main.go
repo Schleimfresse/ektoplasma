@@ -28,13 +28,15 @@ const (
 	TT_LTE        TokenTypes = "LTE"
 	TT_GTE        TokenTypes = "GTE"
 	TT_EOF        TokenTypes = "EOF"
+	TT_COMMA      TokenTypes = "COMMA"
+	TT_ARROW      TokenTypes = "ARROW"
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE"}
-var GlobalSymbolTable = NewSymbolTable()
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC"}
+var GlobalSymbolTable = NewSymbolTable(nil)
 var lineTEMP int
 
-func run(fileName, text string) (interface{}, *RuntimeError) {
+func run(fileName, text string) (*Value, *RuntimeError) {
 	lexer := NewLexer(fileName, text)
 
 	tokens, err := lexer.MakeTokens()
@@ -53,7 +55,7 @@ func run(fileName, text string) (interface{}, *RuntimeError) {
 	parser := NewParser(tokens)
 	ast := parser.Parse()
 	if ast.Error != nil {
-		fmt.Println(ast.Error.AsString())
+		fmt.Println("PARSING ERR:", ast.Error.AsString())
 		return nil, nil
 	} else {
 		fmt.Println(ast.Node)
@@ -61,16 +63,16 @@ func run(fileName, text string) (interface{}, *RuntimeError) {
 
 	context := NewContext("<program>", nil, nil)
 	context.SymbolTable = GlobalSymbolTable
-	interpreter := Interpreter{}
+	interpreter := NewInterpreter()
 	result := interpreter.visit(ast.Node, context)
 
 	return result.Value, result.Error
 }
 
 func main() {
-	GlobalSymbolTable.Set("null", NewNumber(0))
-	GlobalSymbolTable.Set("false", NewNumber(0))
-	GlobalSymbolTable.Set("true", NewNumber(1))
+	GlobalSymbolTable.Set("null", *NewNumber(0))
+	GlobalSymbolTable.Set("false", *NewNumber(0))
+	GlobalSymbolTable.Set("true", *NewNumber(1))
 
 	fileName := "file.ecp"
 	file, err := os.Open(fileName)
@@ -92,8 +94,13 @@ func main() {
 
 		if err != nil {
 			fmt.Println(err.AsString())
+			break
 		} else if result != nil {
-			fmt.Println("FINAL RESULT: ", result.(*Number).Value)
+			if result.Number != nil {
+				fmt.Println("FINAL RESULT: ", result.Number.ValueField)
+			} else if result.Function != nil {
+				fmt.Println("FINAL RESULT func: ", result.Function.String())
+			}
 		}
 		lineTEMP++
 	}

@@ -2,11 +2,16 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 )
 
+func NewInterpreter() Interpreter {
+	return Interpreter{}
+}
+
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
-	//log.Println("NODE HEADER:", reflect.TypeOf(node))
+	log.Println("NODE HEADER:", reflect.TypeOf(node))
 	switch n := node.(type) {
 	case *UnaryOpNode:
 		return i.visitUnaryOpNode(*n, context)
@@ -24,6 +29,10 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitForNode(*n, context)
 	case *WhileNode:
 		return i.visitWhileNode(*n, context)
+	case *CallNode:
+		return i.visitCallNode(*n, context)
+	case *FuncDefNode:
+		return i.visitFuncDefNode(*n, context)
 
 	default:
 		// Handle unknown node types
@@ -38,8 +47,10 @@ func (i *Interpreter) NoVisitMethod(node Node, context *Context) *RTResult {
 }
 
 func (i *Interpreter) visitNumberNode(node NumberNode, context *Context) *RTResult {
+	value := NewNumber(node.Value)
+	value.Number.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
 	return NewRTResult().Success(
-		NewNumber(node.Value).SetContext(context).SetPos(node.PosStart(), node.PosEnd()),
+		value,
 	)
 }
 
@@ -58,10 +69,10 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 		return res
 	}
 
-	left := leftRTValue.Value.(*Number)
-	right := rightRTValue.Value.(*Number)
+	left := leftRTValue.Value.Number
+	right := rightRTValue.Value.Number
 
-	var result *Number
+	var result *Value
 	var err *RuntimeError
 
 	// get the operation type and use the left and the right node from the operation symbol as values
@@ -100,7 +111,8 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 	if err != nil {
 		return res.Failure(err)
 	}
-	return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
+	result.Number.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+	return res.Success(result)
 }
 
 func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTResult {
@@ -110,22 +122,22 @@ func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTRe
 		return res
 	}
 
-	var result *Number
+	var result *Value
 	var err *RuntimeError
 
-	num, ok := numValue.(*Number)
-	if !ok {
+	num := numValue.Number
+	if num == nil {
 		return res.Failure(NewRTError(node.Node.PosStart(), node.Node.PosEnd(), "Expected a number", context))
 	}
 
 	// else if for some reason required, when not expressions like +1 won't work because the context is not set
 	if node.OpTok.Type == TT_MINUS {
-		result, err = num.MultipliedBy(NewNumber(-1))
+		result, err = num.MultipliedBy(NewNumber(-1).Number)
 		if err != nil {
 			return res.Failure(err)
 		}
 	} else if node.OpTok.Type == TT_PLUS {
-		result, err = num.MultipliedBy(NewNumber(1))
+		result, err = num.MultipliedBy(NewNumber(1).Number)
 		if err != nil {
 			return res.Failure(err)
 		}
@@ -136,7 +148,8 @@ func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTRe
 	if err != nil {
 		return res.Failure(err)
 	} else {
-		return res.Success(result.SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
+		result.Number.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+		return res.Success(result)
 	}
 }
 
@@ -146,7 +159,6 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 	varName := node.VarNameTok.Value
 
 	value, exists := context.SymbolTable.Get(varName.(string))
-	f := value.(*Number)
 	if !exists {
 		return res.Failure(NewRTError(
 			node.PosStart(), node.PosEnd(),
@@ -154,8 +166,13 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 			context))
 	}
 
-	value = f.SetPos(node.PosStart(), node.PosEnd())
-	return res.Success(value)
+	if value.Number != nil {
+		value.Number = value.Number.Copy().SetPos(value.Number.PosStart(), value.Number.PosEnd())
+	} else if value.Function != nil {
+		value.Function = value.Function.Copy().SetPos(value.Function.PosStart(), value.Function.PosEnd())
+	}
+
+	return res.Success(&value)
 }
 
 // visitVarAssignNode visits a VarAssignNode and assigns a value to the variable in the symbol table.
@@ -168,7 +185,7 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 		return res
 	}
 
-	context.SymbolTable.Set(varName.(string), value)
+	context.SymbolTable.Set(varName.(string), *value)
 	return res.Success(value)
 }
 
@@ -182,7 +199,7 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 			return res
 		}
 
-		conditionValue := value.(*Number)
+		conditionValue := value.Number
 		if conditionValue.IsTrue() {
 			exprValue := res.Register(i.visit(ifcase.Expr, context))
 			if res.Error != nil {
@@ -218,41 +235,41 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 
 	var stepValue *Number
 	if node.StepValueNode != nil {
-		stepValue = res.Register(i.visit(node.StepValueNode, context)).(*Number)
+		stepValue = res.Register(i.visit(node.StepValueNode, context)).Number
 		if res.Error != nil {
 			return res
 		}
 	} else {
-		stepValue = NewNumber(1)
+		stepValue = NewNumber(1).Number
 	}
 
 	var iVal int
 	var endValue int
 
-	if IsInt(start.(*Number).Value) {
-		iVal = start.(*Number).Value.(int)
+	if IsInt(start.Number.ValueField) {
+		iVal = start.Number.ValueField.(int)
 	} else {
-		startNum := start.(*Number)
-		return res.Failure(NewRTError(startNum.PosStart, startNum.PosEnd, fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(startNum.Value)), startNum.Context))
+		startNum := start.Number
+		return res.Failure(NewRTError(startNum.PosStart(), startNum.PosEnd(), fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(startNum.ValueField)), startNum.Context))
 	}
-	if IsInt(end.(*Number).Value) {
-		endValue = end.(*Number).Value.(int)
+	if IsInt(end.Number.Value) {
+		endValue = end.Number.ValueField.(int)
 	} else {
-		endNum := end.(*Number)
-		return res.Failure(NewRTError(endNum.PosStart, endNum.PosEnd, fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(endNum.Value)), endNum.Context))
+		endNum := end.Number
+		return res.Failure(NewRTError(endNum.PosStart(), endNum.PosEnd(), fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(endNum.ValueField)), endNum.Context))
 	}
 
 	var condition func() bool
-	if stepValue.Value.(int) >= 0 {
+	if stepValue.ValueField.(int) >= 0 {
 		condition = func() bool { return iVal < endValue }
 	} else {
 		condition = func() bool { return iVal > endValue }
 	}
 
 	for condition() {
-		context.SymbolTable.Set(node.VarNameTok.Value.(string), NewNumber(iVal))
+		context.SymbolTable.Set(node.VarNameTok.Value.(string), *NewNumber(iVal))
 
-		iVal += stepValue.Value.(int)
+		iVal += stepValue.ValueField.(int)
 
 		res.Register(i.visit(node.BodyNode, context))
 		if res.Error != nil {
@@ -267,12 +284,12 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 	res := NewRTResult()
 
 	for {
-		condition := res.Register(i.visit(node.ConditionNode, context)).(*Number)
+		condition := res.Register(i.visit(node.ConditionNode, context))
 		if res.Error != nil {
 			return res
 		}
 
-		if !condition.IsTrue() {
+		if !condition.Number.IsTrue() {
 			break
 		}
 
@@ -285,13 +302,72 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 	return res.Success(nil)
 }
 
+func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	var funcName *string
+	if node.VarNameTok != nil {
+		value := node.VarNameTok.Value.(string)
+		funcName = &value
+	} else {
+		funcName = nil
+	}
+
+	argNames := make([]string, len(node.ArgNameToks))
+	for idx, argName := range node.ArgNameToks {
+		argNames[idx] = argName.Value.(string)
+	}
+
+	Value := NewFunction(funcName, &node.BodyNode, argNames)
+	function := Value.Function
+	function.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+
+	if node.VarNameTok != nil {
+		context.SymbolTable.Set(*funcName, *Value)
+	}
+
+	return res.Success(Value)
+}
+
+func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
+	log.Println("visitCallNode", node)
+	res := NewRTResult()
+	args := make([]*Value, len(node.ArgNodes))
+	Call := res.Register(i.visit(node.NodeToCall, context)).Function
+	log.Println("CALL TYPE:", reflect.TypeOf(Call), reflect.TypeOf(i.visit(node.NodeToCall, context).Value))
+	if res.Error != nil {
+		return res
+	}
+
+	valueToCall := Call.SetPos(node.PosStart(), node.PosEnd())
+
+	log.Println("valueToCall:", Call)
+
+	for idx, argNode := range node.ArgNodes {
+		log.Println("ARGS:", reflect.TypeOf(argNode), idx, argNode)
+		args[idx] = res.Register(i.visit(argNode, context))
+		if res.Error != nil {
+			return res
+		}
+	}
+
+	returnValue := res.Register(valueToCall.Execute(args))
+	if res.Error != nil {
+		return res
+	}
+
+	log.Println("FUNC RESULT IN CALL:", returnValue)
+
+	return res.Success(returnValue)
+}
+
 // NewRTResult creates a new RTResult instance.
 func NewRTResult() *RTResult {
 	return &RTResult{}
 }
 
 // Register registers the result of a runtime operation.
-func (r *RTResult) Register(res *RTResult) interface{} {
+func (r *RTResult) Register(res *RTResult) *Value {
 	if res.Error != nil {
 		r.Error = res.Error
 	}
@@ -299,7 +375,7 @@ func (r *RTResult) Register(res *RTResult) interface{} {
 }
 
 // Success indicates a successful runtime operation.
-func (r *RTResult) Success(value interface{}) *RTResult {
+func (r *RTResult) Success(value *Value) *RTResult {
 	r.Value = value
 	return r
 }
@@ -320,15 +396,20 @@ func NewContext(displayName string, parent *Context, parentEntryPos *Position) *
 }
 
 // NewSymbolTable creates a new SymbolTable instance.
-func NewSymbolTable() *SymbolTable {
-	return &SymbolTable{
-		symbols: make(map[string]interface{}),
-		parent:  nil,
+func NewSymbolTable(symboltable *SymbolTable) *SymbolTable {
+	if symboltable == nil {
+
+		return &SymbolTable{
+			symbols: make(map[string]Value),
+			parent:  nil,
+		}
+	} else {
+		return &SymbolTable{symbols: symboltable.symbols, parent: symboltable.parent}
 	}
 }
 
 // Get retrieves the value associated with the name from the symbol table.
-func (st *SymbolTable) Get(name string) (interface{}, bool) {
+func (st *SymbolTable) Get(name string) (Value, bool) {
 	value, exists := st.symbols[name]
 	if !exists && st.parent != nil {
 		return st.parent.Get(name)
@@ -337,7 +418,7 @@ func (st *SymbolTable) Get(name string) (interface{}, bool) {
 }
 
 // Set sets the value associated with the name in the symbol table.
-func (st *SymbolTable) Set(name string, value interface{}) {
+func (st *SymbolTable) Set(name string, value Value) {
 	st.symbols[name] = value
 }
 

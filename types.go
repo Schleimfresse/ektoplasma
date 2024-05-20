@@ -111,13 +111,6 @@ type Context struct {
 	SymbolTable    *SymbolTable
 }
 
-type Number struct {
-	Value    interface{}
-	PosStart *Position
-	PosEnd   *Position
-	Context  *Context
-}
-
 type RuntimeError struct {
 	*Error
 	Context *Context
@@ -135,13 +128,13 @@ type ExpectedCharError struct {
 
 // RTResult represents the result of a runtime operation.
 type RTResult struct {
-	Value interface{}
+	Value *Value
 	Error *RuntimeError
 }
 
 // SymbolTable represents a symbol table in the interpreter.
 type SymbolTable struct {
-	symbols map[string]interface{}
+	symbols map[string]Value
 	parent  *SymbolTable
 }
 
@@ -172,4 +165,44 @@ type ForNode struct {
 	BodyNode       Node
 	PositionStart  *Position
 	PositionEnd    *Position
+}
+
+type FuncDefNode struct {
+	VarNameTok    *Token
+	ArgNameToks   []*Token
+	BodyNode      Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type CallNode struct {
+	NodeToCall    Node
+	ArgNodes      []Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+// Function represents a function value.
+type Function struct {
+	Name                       string
+	BodyNode                   *Node
+	ArgNames                   []string
+	PositionStart, PositionEnd *Position
+	Context                    *Context
+}
+
+// Number represents a numeric value.
+type Number struct {
+	ValueField                 interface{}
+	PositionStart, PositionEnd *Position
+	Context                    *Context
+}
+
+type Value struct {
+	Number   *Number
+	Function *Function
+}
+
+type Types struct {
+	Value Value
 }

@@ -265,6 +265,144 @@ func (p *Parser) WhileExpr() *ParseResult {
 	return res.Success(NewWhileNode(condition, body))
 }
 
+func (p *Parser) Call() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+	atom := res.Register(p.Atom())
+	if res.Error != nil {
+		return res
+	}
+
+	if p.Current.Type == TT_LPAREN {
+		res.RegisterAdvancement()
+		p.Advance()
+		var ArgNodes []Node
+
+		if p.Current.Type == TT_RPAREN {
+			res.RegisterAdvancement()
+			p.Advance()
+		} else {
+			ArgNodes = append(ArgNodes, res.Register(p.Expr()))
+			if res.Error != nil {
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ')', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
+			}
+
+			for p.Current.Type == TT_COMMA {
+				res.RegisterAdvancement()
+				p.Advance()
+
+				ArgNodes = append(ArgNodes, res.Register(p.Expr()))
+				if res.Error != nil {
+					return res
+				}
+			}
+
+			if p.Current.Type != TT_RPAREN {
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ',' or ')'").Error)
+			}
+
+			res.RegisterAdvancement()
+			p.Advance()
+		}
+
+		return res.Success(NewCallNode(atom, ArgNodes))
+	}
+	return res.Success(atom)
+}
+
+func (p *Parser) FuncDef() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+	var VarNameToken *Token
+
+	if !p.Current.Matches(TT_KEYWORD, "FUNC") {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected 'FUNC'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if p.Current.Type == TT_IDENTIFIER {
+		VarNameToken = p.Current
+		res.RegisterAdvancement()
+		p.Advance()
+		if p.Current.Type != TT_LPAREN {
+			return res.Failure(NewInvalidSyntaxError(
+				p.Current.PosStart, p.Current.PosEnd,
+				"Expected '('",
+			).Error)
+		}
+	} else {
+		VarNameToken = nil
+		if p.Current.Type != TT_LPAREN {
+			return res.Failure(NewInvalidSyntaxError(
+				p.Current.PosStart, p.Current.PosEnd,
+				"Expected identifier or '('",
+			).Error)
+		}
+
+	}
+	res.RegisterAdvancement()
+	p.Advance()
+	var ArgNameTokens []*Token
+
+	if p.Current.Type == TT_IDENTIFIER {
+		ArgNameTokens = append(ArgNameTokens, p.Current)
+		res.RegisterAdvancement()
+		p.Advance()
+
+		for p.Current.Type == TT_COMMA {
+			res.RegisterAdvancement()
+			p.Advance()
+
+			if p.Current.Type != TT_IDENTIFIER {
+				return res.Failure(NewInvalidSyntaxError(
+					p.Current.PosStart, p.Current.PosEnd,
+					"Expected identifier",
+				).Error)
+			}
+
+			ArgNameTokens = append(ArgNameTokens, p.Current)
+			res.RegisterAdvancement()
+			p.Advance()
+		}
+
+		if p.Current.Type != TT_RPAREN {
+			return res.Failure(NewInvalidSyntaxError(
+				p.Current.PosStart, p.Current.PosEnd,
+				"Expected ',' or ')'",
+			).Error)
+		}
+	} else {
+		if p.Current.Type != TT_RPAREN {
+			return res.Failure(NewInvalidSyntaxError(
+				p.Current.PosStart, p.Current.PosEnd,
+				"Expected ',' or ')'",
+			).Error)
+		}
+	}
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if p.Current.Type != TT_ARROW {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected '->'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+	NodeToReturn := res.Register(p.Expr())
+
+	if res.Error != nil {
+		return res
+	}
+
+	return res.Success(NewFuncDefNode(VarNameToken, ArgNameTokens, NodeToReturn))
+}
+
 func (p *Parser) Atom() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	tok := p.Current
@@ -319,18 +457,24 @@ func (p *Parser) Atom() *ParseResult {
 			return res
 		}
 		return res.Success(WhileExpr)
+	} else if tok.Matches(TT_KEYWORD, "FUNC") {
+		FuncDef := res.Register(p.FuncDef())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(FuncDef)
 	}
 	log.Println(p.Current.Type, p.Current.Value, p.Current.PosStart, p.Current.PosEnd)
-	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-' or '('").Error)
+	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-' or '(', 'IF', 'FOR', 'WHILE', 'FUNC'").Error)
 }
 
 func (p *Parser) Power() *ParseResult {
-	return p.BinOp(p.Atom, []TokenTypeInfo{{TT_POW, nil}})
+	return p.BinOp(p.Call, []TokenTypeInfo{{TT_POW, nil}}, p.Factor)
 }
 
 // ArithExpr parses an arithmetic expression.
 func (p *Parser) ArithExpr() *ParseResult {
-	return p.BinOp(p.Term, []TokenTypeInfo{{TT_PLUS, nil}, {TT_MINUS, nil}})
+	return p.BinOp(p.Term, []TokenTypeInfo{{TT_PLUS, nil}, {TT_MINUS, nil}}, p.Term)
 }
 
 // CompExpr parses a comparison expression.
@@ -349,7 +493,7 @@ func (p *Parser) CompExpr() *ParseResult {
 		return res.Success(NewUnaryOpNode(opTok, node))
 	}
 
-	node := res.Register(p.BinOp(p.ArithExpr, []TokenTypeInfo{{TT_EE, nil}, {TT_NE, nil}, {TT_LT, nil}, {TT_GT, nil}, {TT_LTE, nil}, {TT_GTE, nil}}))
+	node := res.Register(p.BinOp(p.ArithExpr, []TokenTypeInfo{{TT_EE, nil}, {TT_NE, nil}, {TT_LT, nil}, {TT_GT, nil}, {TT_LTE, nil}, {TT_GTE, nil}}, p.ArithExpr))
 	log.Println("COMP:", node)
 	if res.Error != nil {
 		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-', '(' or 'NOT'").Error)
@@ -373,7 +517,7 @@ func (p *Parser) Factor() *ParseResult {
 }
 
 func (p *Parser) Term() *ParseResult {
-	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}})
+	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}}, nil)
 }
 
 // Expr parses an expression.
@@ -415,19 +559,20 @@ func (p *Parser) Expr() *ParseResult {
 
 	and := "AND"
 	or := "OR"
-	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}))
+	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}, nil))
 	log.Println("NODE in expr:", node)
 	if res.Error != nil {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
 	}
 
 	return res.Success(node)
 }
 
 // / BinOp parses a binary operation.
-func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypeInfo) *ParseResult {
+func (p *Parser) BinOp(funcAParser func() *ParseResult, ops []TokenTypeInfo, funcBParser func() *ParseResult) *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
-	left := res.Register(funcParser())
+
+	left := res.Register(funcAParser())
 	if res.Error != nil {
 		return res
 	}
@@ -439,7 +584,7 @@ func (p *Parser) BinOp(funcParser func() *ParseResult, ops []TokenTypeInfo) *Par
 		p.Advance()
 
 		// Parse the right side of the expression
-		right := res.Register(funcParser())
+		right := res.Register(funcBParser())
 
 		if res.Error != nil {
 			return res
