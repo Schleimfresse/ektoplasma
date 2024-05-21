@@ -11,6 +11,7 @@ import (
 const (
 	TT_INT        TokenTypes = "INT"
 	TT_FLOAT      TokenTypes = "FLOAT"
+	TT_STRING     TokenTypes = "STRING"
 	TT_IDENTIFIER TokenTypes = "IDENTIFIER"
 	TT_KEYWORD    TokenTypes = "KEYWORD"
 	TT_PLUS       TokenTypes = "PLUS"
@@ -97,9 +98,11 @@ func main() {
 			break
 		} else if result != nil {
 			if result.Number != nil {
-				fmt.Println("FINAL RESULT: ", result.Number.ValueField)
+				fmt.Println("FINAL RESULT:", result.Number.ValueField)
 			} else if result.Function != nil {
-				fmt.Println("FINAL RESULT func: ", result.Function.String())
+				fmt.Println("FINAL RESULT func:", result.Function.String())
+			} else if result.String != nil {
+				fmt.Println("FINAL RESULT:", result.String.ValueField)
 			}
 		}
 		lineTEMP++

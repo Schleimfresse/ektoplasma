@@ -12,6 +12,11 @@ func (n *NumberNode) String() string {
 	return fmt.Sprintf("%v", n.Tok)
 }
 
+// NewStringNode creates a new StringNode instance.
+func NewStringNode(tok *Token) *StringNode {
+	return &StringNode{tok, tok.Value, tok.PosStart, tok.PosEnd}
+}
+
 // NewBinOpNode creates a new BinOpNode instance.
 func NewBinOpNode(left Node, opTok *Token, right Node) *BinOpNode {
 	return &BinOpNode{left, opTok, right, left.PosStart(), right.PosEnd()}
@@ -213,6 +218,20 @@ func (n *NumberNode) PosStart() *Position {
 // PosEnd returns the end position of the number node.
 func (n *NumberNode) PosEnd() *Position {
 	return n.Tok.PosEnd
+}
+
+func (s *StringNode) String() string {
+	return fmt.Sprintf("%v", s.Tok)
+}
+
+// PosStart returns the start position of the number node.
+func (s *StringNode) PosStart() *Position {
+	return s.Tok.PosStart
+}
+
+// PosEnd returns the end position of the number node.
+func (s *StringNode) PosEnd() *Position {
+	return s.Tok.PosEnd
 }
 
 // PosStart returns the start position of the binary operation node.

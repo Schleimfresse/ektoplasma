@@ -33,7 +33,8 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitCallNode(*n, context)
 	case *FuncDefNode:
 		return i.visitFuncDefNode(*n, context)
-
+	case *StringNode:
+		return i.visitStringNode(*n, context)
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -48,10 +49,17 @@ func (i *Interpreter) NoVisitMethod(node Node, context *Context) *RTResult {
 
 func (i *Interpreter) visitNumberNode(node NumberNode, context *Context) *RTResult {
 	value := NewNumber(node.Value)
-	value.Number.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
-	return NewRTResult().Success(
-		value,
-	)
+	value.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+	return NewRTResult().Success(value)
+}
+
+func (i *Interpreter) visitStringNode(node StringNode, context *Context) *RTResult {
+	if TokenValue, ok := node.Value.(string); ok {
+		value := NewString(TokenValue)
+		value.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+		return NewRTResult().Success(value)
+	}
+	return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("%s is not of type string", reflect.TypeOf(node.Value)), context))
 }
 
 func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult {
@@ -69,41 +77,53 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 		return res
 	}
 
-	left := leftRTValue.Value.Number
-	right := rightRTValue.Value.Number
+	left := leftRTValue.Value
+	right := rightRTValue.Value
 
 	var result *Value
 	var err *RuntimeError
 
-	// get the operation type and use the left and the right node from the operation symbol as values
+	// get the operation type and use the left and the right.Number node from the operation symbol as values
 	switch node.OpTok.Type {
 	case TT_PLUS:
-		result, err = left.AddedTo(right)
+		if left.String != nil && right.String != nil {
+			result, err = left.String.AddedTo(right.String)
+		} else if left.Number != nil && right.Number != nil {
+			result, err = left.Number.AddedTo(right.Number)
+		} else {
+			return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid types for addition", context))
+		}
 	case TT_MINUS:
-		result, err = left.SubtractedBy(right)
+		result, err = left.Number.SubtractedBy(right.Number)
 	case TT_MUL:
-		result, err = left.MultipliedBy(right)
+		if left.String != nil && right.Number != nil {
+			result, err = left.String.MultipliedBy(right.Number)
+		} else if left.Number != nil && right.Number != nil {
+			result, err = left.Number.MultipliedBy(right.Number)
+		} else {
+			return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid types for multiplication", context))
+		}
 	case TT_DIV:
-		result, err = left.DividedBy(right)
+		result, err = left.Number.DividedBy(right.Number)
 	case TT_POW:
-		result, err = left.PowedBy(right)
+		result, err = left.Number.PowedBy(right.Number)
 	case TT_EE:
-		result, err = left.GetComparisonEq(right)
+		result, err = left.Number.GetComparisonEq(right.Number)
 	case TT_NE:
-		result, err = left.GetComparisonNe(right)
+		result, err = left.Number.GetComparisonNe(right.Number)
 	case TT_LT:
-		result, err = left.GetComparisonLt(right)
+		result, err = left.Number.GetComparisonLt(right.Number)
 	case TT_GT:
-		result, err = left.GetComparisonGt(right)
+		result, err = left.Number.GetComparisonGt(right.Number)
 	case TT_LTE:
-		result, err = left.GetComparisonLte(right)
+		result, err = left.Number.GetComparisonLte(right.Number)
 	case TT_GTE:
-		result, err = left.GetComparisonGte(right)
+		result, err = left.Number.GetComparisonGte(right.Number)
 	case TT_KEYWORD:
 		if node.OpTok.Value == "AND" {
-			result, err = left.AndedBy(right)
+			result, err = left.Number.AndedBy(right.Number)
 		} else if node.OpTok.Value == "OR" {
-			result, err = left.OredBy(right)
+			result, err = left.Number.OredBy(right.Number)
 		}
 	default:
 		return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid operation", context))
@@ -111,7 +131,9 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 	if err != nil {
 		return res.Failure(err)
 	}
-	result.Number.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+
+	result.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+
 	return res.Success(result)
 }
 
@@ -148,7 +170,7 @@ func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTRe
 	if err != nil {
 		return res.Failure(err)
 	} else {
-		result.Number.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+		result.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
 		return res.Success(result)
 	}
 }
@@ -167,9 +189,9 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 	}
 
 	if value.Number != nil {
-		value.Number = value.Number.Copy().SetPos(value.Number.PosStart(), value.Number.PosEnd())
+		value = *value.Number.Copy().SetPos(value.Number.PosStart(), value.Number.PosEnd())
 	} else if value.Function != nil {
-		value.Function = value.Function.Copy().SetPos(value.Function.PosStart(), value.Function.PosEnd())
+		value = *value.Function.Copy().SetPos(value.Function.PosStart(), value.Function.PosEnd())
 	}
 
 	return res.Success(&value)
@@ -318,22 +340,22 @@ func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTRe
 		argNames[idx] = argName.Value.(string)
 	}
 
-	Value := NewFunction(funcName, &node.BodyNode, argNames)
-	function := Value.Function
-	function.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
+	value := NewFunction(funcName, &node.BodyNode, argNames)
+	value.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
 
 	if node.VarNameTok != nil {
-		context.SymbolTable.Set(*funcName, *Value)
+		context.SymbolTable.Set(*funcName, *value)
 	}
 
-	return res.Success(Value)
+	return res.Success(value)
 }
 
 func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 	log.Println("visitCallNode", node)
 	res := NewRTResult()
 	args := make([]*Value, len(node.ArgNodes))
-	Call := res.Register(i.visit(node.NodeToCall, context)).Function
+	Call := res.Register(i.visit(node.NodeToCall, context))
+	log.Println(node.NodeToCall, context, Call)
 	log.Println("CALL TYPE:", reflect.TypeOf(Call), reflect.TypeOf(i.visit(node.NodeToCall, context).Value))
 	if res.Error != nil {
 		return res
@@ -351,7 +373,7 @@ func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 		}
 	}
 
-	returnValue := res.Register(valueToCall.Execute(args))
+	returnValue := res.Register(valueToCall.Function.Execute(args))
 	if res.Error != nil {
 		return res
 	}

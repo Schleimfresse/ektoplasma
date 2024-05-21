@@ -23,6 +23,13 @@ type NumberNode struct {
 	PositionEnd   *Position
 }
 
+type StringNode struct {
+	Tok           *Token
+	Value         interface{}
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
 // VarAccessNode represents a variable access node
 type VarAccessNode struct {
 	VarNameTok    *Token
@@ -198,9 +205,17 @@ type Number struct {
 	Context                    *Context
 }
 
+// Number represents a String value.
+type String struct {
+	ValueField                 string
+	PositionStart, PositionEnd *Position
+	Context                    *Context
+}
+
 type Value struct {
 	Number   *Number
 	Function *Function
+	String   *String
 }
 
 type Types struct {

@@ -70,6 +70,8 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			tokens = append(tokens, l.MakeNumber())
 		} else if isLetter(l.CurrentChar) {
 			tokens = append(tokens, l.MakeIdentifier())
+		} else if l.CurrentChar == '"' {
+			tokens = append(tokens, l.MakeString())
 		} else if l.CurrentChar == '+' {
 			tokens = append(tokens, NewToken(TT_PLUS, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
@@ -116,6 +118,39 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 	}
 	tokens = append(tokens, NewToken(TT_EOF, nil, l.Pos.Copy(), l.Pos.Copy()))
 	return tokens, nil
+}
+
+// MakeString parses a string token from the input text
+func (l *Lexer) MakeString() *Token {
+	var result string
+	posStart := l.Pos.Copy()
+	escapeCharacter := false
+	l.Advance()
+
+	escapeCharacters := map[byte]string{
+		'n': "\n",
+		't': "\t",
+	}
+
+	for l.CurrentChar != 0 && (l.CurrentChar != '"' || escapeCharacter) {
+		if escapeCharacter {
+			if val, ok := escapeCharacters[l.CurrentChar]; ok {
+				result += val
+			} else {
+				result += string(l.CurrentChar)
+			}
+			escapeCharacter = false
+		} else {
+			if l.CurrentChar == '\\' {
+				escapeCharacter = true
+			} else {
+				result += string(l.CurrentChar)
+			}
+		}
+		l.Advance()
+	}
+	l.Advance()
+	return &Token{Type: TT_STRING, Value: result, PosStart: posStart, PosEnd: l.Pos}
 }
 
 func (l *Lexer) MakeIdentifier() *Token {

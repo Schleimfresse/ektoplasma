@@ -423,6 +423,10 @@ func (p *Parser) Atom() *ParseResult {
 			tok.Value = int(value)
 		}
 		return res.Success(NewNumberNode(tok))
+	} else if tok.Type == TT_STRING {
+		res.RegisterAdvancement()
+		p.Advance()
+		return res.Success(NewStringNode(tok))
 	} else if tok.Type == TT_IDENTIFIER {
 		res.RegisterAdvancement()
 		p.Advance()
@@ -517,7 +521,7 @@ func (p *Parser) Factor() *ParseResult {
 }
 
 func (p *Parser) Term() *ParseResult {
-	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}}, nil)
+	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}}, p.Factor)
 }
 
 // Expr parses an expression.

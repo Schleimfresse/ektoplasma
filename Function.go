@@ -15,19 +15,6 @@ func NewFunction(name *string, bodyNode *Node, argNames []string) *Value {
 	return &Value{Function: &Function{*name, bodyNode, argNames, nil, nil, nil}}
 }
 
-// SetPos sets the position of the function.
-func (f *Function) SetPos(posStart *Position, posEnd *Position) *Function {
-	f.PositionStart = posStart
-	f.PositionEnd = posEnd
-	return f
-}
-
-// SetContext sets the context of the function.
-func (f *Function) SetContext(context *Context) *Function {
-	f.Context = context
-	return f
-}
-
 // Execute executes the function with the given arguments.
 func (f *Function) Execute(args []*Value) *RTResult {
 	res := NewRTResult()
@@ -53,8 +40,8 @@ func (f *Function) Execute(args []*Value) *RTResult {
 
 	for i, argName := range f.ArgNames {
 		argValue := args[i]
-		num := argValue.Number.SetContext(newContext)
-		newContext.SymbolTable.Set(argName, Value{Number: num})
+		value := *argValue.SetContext(newContext)
+		newContext.SymbolTable.Set(argName, value)
 	}
 
 	if f.BodyNode == nil {
@@ -75,11 +62,8 @@ func (f *Function) Execute(args []*Value) *RTResult {
 }
 
 // Copy creates a copy of the function.
-func (f *Function) Copy() *Function {
-	copy := NewFunction(&f.Name, f.BodyNode, f.ArgNames).Function
-	copy.SetContext(f.Context)
-	copy.SetPos(f.PosStart(), f.PosEnd())
-	return copy
+func (f *Function) Copy() *Value {
+	return NewFunction(&f.Name, f.BodyNode, f.ArgNames).SetContext(f.Context).SetPos(f.PosStart(), f.PosEnd())
 }
 
 // String returns the string representation of the function.

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"math"
 	"reflect"
 )
@@ -17,16 +16,8 @@ func (n *Number) IllegalOperation(other *Number) *RuntimeError {
 	return NewRTError(n.PosStart(), n.PosEnd(), "Illegal operation", n.Context)
 }
 
-func (n *Number) Copy() *Number {
-	log.Println("NUM:", n)
-	return NewNumber(n.ValueField).Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
-}
-
-// SetPos sets the position of the number.
-func (n *Number) SetPos(posStart *Position, posEnd *Position) *Number {
-	n.PositionStart = posStart
-	n.PositionEnd = posEnd
-	return n
+func (n *Number) Copy() *Value {
+	return NewNumber(n.ValueField).SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 }
 
 func (n *Number) Type() reflect.Type {
@@ -45,12 +36,6 @@ func (n *Number) PosEnd() *Position {
 	return n.PositionEnd
 }
 
-// SetContext sets the context of the number.
-func (n *Number) SetContext(context *Context) *Number {
-	n.Context = context
-	return n
-}
-
 // AddedTo performs addition with another number.
 func (n *Number) AddedTo(other *Number) (*Value, *RuntimeError) {
 	if n.ValueField != nil && other.ValueField != nil {
@@ -58,21 +43,21 @@ func (n *Number) AddedTo(other *Number) (*Value, *RuntimeError) {
 		case int:
 			if otherIsInt, ok := other.ValueField.(int); ok {
 				value := NewNumber(float64(nVal) + float64(otherIsInt))
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 				value := NewNumber(float64(nVal) + otherIsFloat)
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			}
 		case float64:
 			if otherIsInt, ok := other.ValueField.(int); ok {
 				value := NewNumber(nVal + float64(otherIsInt))
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 				value := NewNumber(nVal + otherIsFloat)
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			}
 		}
@@ -86,11 +71,11 @@ func (n *Number) SubtractedBy(other *Number) (*Value, *RuntimeError) {
 		switch nVal := n.ValueField.(type) {
 		case int:
 			value := NewNumber(nVal - other.ValueField.(int))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		case float64:
 			value := NewNumber(nVal - other.ValueField.(float64))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	}
@@ -103,11 +88,11 @@ func (n *Number) MultipliedBy(other *Number) (*Value, *RuntimeError) {
 		switch nVal := n.ValueField.(type) {
 		case int:
 			value := NewNumber(nVal * other.ValueField.(int))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		case float64:
 			value := NewNumber(nVal * other.ValueField.(float64))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	}
@@ -123,11 +108,11 @@ func (n *Number) DividedBy(other *Number) (*Value, *RuntimeError) {
 		switch nVal := n.ValueField.(type) {
 		case int:
 			value := NewNumber(nVal / other.ValueField.(int))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		case float64:
 			value := NewNumber(nVal / other.ValueField.(float64))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	}
@@ -158,7 +143,7 @@ func (n *Number) PowedBy(other *Number) (*Value, *RuntimeError) {
 		}
 
 		value := NewNumber(math.Pow(nVal, otherVal))
-		NewNumber(math.Pow(nVal, otherVal)).Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+		NewNumber(math.Pow(nVal, otherVal)).SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 		return value, nil
 	}
 	return nil, n.IllegalOperation(other)
@@ -167,7 +152,7 @@ func (n *Number) PowedBy(other *Number) (*Value, *RuntimeError) {
 func (n *Number) GetComparisonEq(other *Number) (*Value, *RuntimeError) {
 	if other != nil {
 		value := NewNumber(ConvertBoolToInt(n.ValueField == other.ValueField))
-		value.Number.SetContext(n.Context)
+		value.SetContext(n.Context)
 		return value, nil
 	}
 	return nil, n.IllegalOperation(other)
@@ -176,7 +161,7 @@ func (n *Number) GetComparisonEq(other *Number) (*Value, *RuntimeError) {
 func (n *Number) GetComparisonNe(other *Number) (*Value, *RuntimeError) {
 	if other != nil {
 		value := NewNumber(ConvertBoolToInt(n.ValueField != other.ValueField))
-		value.Number.SetContext(n.Context)
+		value.SetContext(n.Context)
 		return value, nil
 	}
 	return nil, n.IllegalOperation(other)
@@ -189,22 +174,22 @@ func (n *Number) GetComparisonLt(other *Number) (*Value, *RuntimeError) {
 			switch otherVal := other.ValueField.(type) {
 			case int:
 				value := NewNumber(ConvertBoolToInt(n.ValueField.(int) < otherVal))
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			case float64:
 				value := NewNumber(ConvertBoolToInt(n.ValueField.(float64) < otherVal))
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			}
 		case float64:
 			switch otherVal := other.ValueField.(type) {
 			case int:
 				value := NewNumber(ConvertBoolToInt(int(nVal) < otherVal))
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			case float64:
 				value := NewNumber(ConvertBoolToInt(nVal < otherVal))
-				value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+				value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 				return value, nil
 			}
 		}
@@ -218,21 +203,21 @@ func (n *Number) GetComparisonGt(other *Number) (*Value, *RuntimeError) {
 	case int:
 		if otherIsInt, ok := other.ValueField.(int); ok {
 			value := NewNumber(ConvertBoolToInt(nVal > otherIsInt))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 			value := NewNumber(ConvertBoolToInt(float64(nVal) > otherIsFloat))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	case float64:
 		if otherIsInt, ok := other.ValueField.(int); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(int) > otherIsInt))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(float64) > otherIsFloat))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	}
@@ -244,21 +229,21 @@ func (n *Number) GetComparisonLte(other *Number) (*Value, *RuntimeError) {
 	case int:
 		if otherIsInt, ok := other.ValueField.(int); ok {
 			value := NewNumber(ConvertBoolToInt(nVal <= otherIsInt))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 			value := NewNumber(ConvertBoolToInt(float64(nVal) <= otherIsFloat))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	case float64:
 		if otherIsInt, ok := other.ValueField.(int); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(int) <= otherIsInt))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(float64) <= otherIsFloat))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	}
@@ -270,21 +255,21 @@ func (n *Number) GetComparisonGte(other *Number) (*Value, *RuntimeError) {
 	case int:
 		if otherIsInt, ok := other.ValueField.(int); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(int) >= otherIsInt))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 			value := NewNumber(ConvertBoolToInt(float64(nVal) >= otherIsFloat))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	case float64:
 		if otherIsInt, ok := other.ValueField.(int); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(int) >= otherIsInt))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
 			value := NewNumber(ConvertBoolToInt(n.ValueField.(float64) >= otherIsFloat))
-			value.Number.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	}
@@ -294,7 +279,7 @@ func (n *Number) GetComparisonGte(other *Number) (*Value, *RuntimeError) {
 func (n *Number) AndedBy(other *Number) (*Value, *RuntimeError) {
 	if other != nil {
 		value := NewNumber(ConvertBoolToInt(n.ValueField != 0 && other.ValueField != 0))
-		value.Number.SetContext(n.Context)
+		value.SetContext(n.Context)
 		return value, nil
 	}
 	return nil, n.IllegalOperation(other)
@@ -303,7 +288,7 @@ func (n *Number) AndedBy(other *Number) (*Value, *RuntimeError) {
 func (n *Number) OredBy(other *Number) (*Value, *RuntimeError) {
 	if other != nil {
 		value := NewNumber(ConvertBoolToInt(n.ValueField != 0 || other.ValueField != 0))
-		value.Number.SetContext(n.Context)
+		value.SetContext(n.Context)
 		return value, nil
 	}
 	return nil, n.IllegalOperation(other)
@@ -311,7 +296,7 @@ func (n *Number) OredBy(other *Number) (*Value, *RuntimeError) {
 
 func (n *Number) Notted() (*Value, *RuntimeError) {
 	value := NewNumber(ConvertBoolToInt(n.ValueField != 0))
-	value.Number.SetContext(n.Context)
+	value.SetContext(n.Context)
 	return value, nil
 }
 

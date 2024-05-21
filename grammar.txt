@@ -13,7 +13,7 @@ factor		: (PLUS|MINUS) factor
 
 power		: atom (POW factor)*
 
-atom 		: INT|FLOAT|IDENTIFIER
+atom 		: INT|FLOAT|String|IDENTIFIER
 			: LPAREN expr RPAREN
 			: if-expr
 			: for-expr
