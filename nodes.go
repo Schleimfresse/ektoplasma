@@ -130,6 +130,25 @@ func NewCallNode(nodeToCall Node, argNodes []Node) *CallNode {
 	}
 }
 
+func NewArrayNode(ElementNodes []Node, PosStart *Position, PosEnd *Position) *ArrayNode {
+	return &ArrayNode{ElementNodes, PosStart, PosEnd}
+}
+
+// String returns the string representation of the array node.
+func (a *ArrayNode) String() string {
+	return fmt.Sprintf("(%v)", a.ElementNodes)
+}
+
+// PosStart returns the start position of the array node.
+func (a *ArrayNode) PosStart() *Position {
+	return a.PositionStart
+}
+
+// PosEnd returns the end position of the array node.
+func (a *ArrayNode) PosEnd() *Position {
+	return a.PositionEnd
+}
+
 // String returns the string representation of the UnaryOpNode.
 func (c *CallNode) String() string {
 	return fmt.Sprintf("(%v, %v)", c.ArgNodes, c.NodeToCall)

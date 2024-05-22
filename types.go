@@ -189,11 +189,31 @@ type CallNode struct {
 	PositionEnd   *Position
 }
 
+type ArrayNode struct {
+	ElementNodes  []Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
 // Function represents a function value.
 type Function struct {
+	BodyNode *Node
+	ArgNames []string
+	Base     *BaseFunction
+}
+
+type BuildInFunction struct {
+	Base    *BaseFunction
+	Methods map[string]Method
+}
+
+type Method struct {
+	ArgsNames []string
+	Fn        func(ctx *Context) *RTResult
+}
+
+type BaseFunction struct {
 	Name                       string
-	BodyNode                   *Node
-	ArgNames                   []string
 	PositionStart, PositionEnd *Position
 	Context                    *Context
 }
@@ -205,19 +225,23 @@ type Number struct {
 	Context                    *Context
 }
 
-// Number represents a String value.
+// String represents a String value.
 type String struct {
 	ValueField                 string
 	PositionStart, PositionEnd *Position
 	Context                    *Context
 }
 
-type Value struct {
-	Number   *Number
-	Function *Function
-	String   *String
+type Array struct {
+	Elements                   []Value
+	PositionStart, PositionEnd *Position
+	Context                    *Context
 }
 
-type Types struct {
-	Value Value
+type Value struct {
+	Number          *Number
+	Function        *Function
+	BuildInFunction *BuildInFunction
+	String          *String
+	Array           *Array
 }

@@ -67,6 +67,49 @@ func (p *Parser) Parse() *ParseResult {
 	return res
 }
 
+// listExpr method for Interpreter
+func (p *Parser) ListExpr() *ParseResult {
+	res := &ParseResult{}
+	elementNodes := []Node{}
+	posStart := p.Current.PosStart.Copy()
+
+	if p.Current.Type != TT_LSQUARE {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '['").Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if p.Current.Type == TT_RSQUARE {
+		res.RegisterAdvancement()
+		p.Advance()
+	} else {
+		elementNodes = append(elementNodes, res.Register(p.Expr()))
+		if res.Error != nil {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ']', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'").Error)
+		}
+
+		for p.Current.Type == TT_COMMA {
+			res.RegisterAdvancement()
+			p.Advance()
+
+			elementNodes = append(elementNodes, res.Register(p.Expr()))
+			if res.Error != nil {
+				return res
+			}
+		}
+
+		if p.Current.Type != TT_RSQUARE {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ',' or ']'").Error)
+		}
+
+		res.RegisterAdvancement()
+		p.Advance()
+	}
+
+	return res.Success(NewArrayNode(elementNodes, posStart, p.Current.PosEnd.Copy()))
+}
+
 func (p *Parser) IfExpr() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	var cases []*IfCaseNode
@@ -86,8 +129,6 @@ func (p *Parser) IfExpr() *ParseResult {
 	if res.Error != nil {
 		return res
 	}
-
-	log.Println("condition from IdExpr: ", condition)
 
 	if !p.Current.Matches(TT_KEYWORD, "THEN") {
 		return res.Failure(NewInvalidSyntaxError(
@@ -283,7 +324,7 @@ func (p *Parser) Call() *ParseResult {
 		} else {
 			ArgNodes = append(ArgNodes, res.Register(p.Expr()))
 			if res.Error != nil {
-				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ')', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ')', 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'").Error)
 			}
 
 			for p.Current.Type == TT_COMMA {
@@ -431,6 +472,12 @@ func (p *Parser) Atom() *ParseResult {
 		res.RegisterAdvancement()
 		p.Advance()
 		return res.Success(NewVarAccessNode(tok))
+	} else if tok.Type == TT_LSQUARE {
+		listExpr := res.Register(p.ListExpr())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(listExpr)
 	} else if tok.Type == TT_LPAREN {
 		p.Advance() // Advance token index here
 		expr := res.Register(p.Expr())
@@ -468,7 +515,7 @@ func (p *Parser) Atom() *ParseResult {
 		}
 		return res.Success(FuncDef)
 	}
-	log.Println(p.Current.Type, p.Current.Value, p.Current.PosStart, p.Current.PosEnd)
+
 	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-' or '(', 'IF', 'FOR', 'WHILE', 'FUNC'").Error)
 }
 
@@ -498,9 +545,9 @@ func (p *Parser) CompExpr() *ParseResult {
 	}
 
 	node := res.Register(p.BinOp(p.ArithExpr, []TokenTypeInfo{{TT_EE, nil}, {TT_NE, nil}, {TT_LT, nil}, {TT_GT, nil}, {TT_LTE, nil}, {TT_GTE, nil}}, p.ArithExpr))
-	log.Println("COMP:", node)
+
 	if res.Error != nil {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-', '(' or 'NOT'").Error)
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-', '(', '[' or 'NOT'").Error)
 	}
 
 	return res.Success(node)
@@ -564,9 +611,9 @@ func (p *Parser) Expr() *ParseResult {
 	and := "AND"
 	or := "OR"
 	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}, nil))
-	log.Println("NODE in expr:", node)
+
 	if res.Error != nil {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(' or 'NOT'").Error)
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'VAR', 'IF', 'FOR', 'WHILE', 'FUN', int, float, identifier, '+', '-', '(', '[' or 'NOT'").Error)
 	}
 
 	return res.Success(node)
@@ -582,7 +629,6 @@ func (p *Parser) BinOp(funcAParser func() *ParseResult, ops []TokenTypeInfo, fun
 	}
 
 	for ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value) {
-		//log.Println("ACCEPTED", ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value), p.Current.Type, p.Current.Value)
 		opTok := p.Current
 		res.RegisterAdvancement()
 		p.Advance()
@@ -594,10 +640,7 @@ func (p *Parser) BinOp(funcAParser func() *ParseResult, ops []TokenTypeInfo, fun
 			return res
 		}
 		left = NewBinOpNode(left, opTok, right)
-
-		//log.Println("LEFT TOTAL:", left.(*BinOpNode).LeftNode, left.(*BinOpNode).OpTok, left.(*BinOpNode).RightNode)
 	}
-	//log.Println("ACCEPTED 1", ContainsTypeOrValue(ops, p.Current.Type, p.Current.Value), p.Current.Type, p.Current.Value)
 
 	return res.Success(left)
 }

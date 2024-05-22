@@ -17,7 +17,7 @@ func (n *Number) IllegalOperation(other *Number) *RuntimeError {
 }
 
 func (n *Number) Copy() *Value {
-	return NewNumber(n.ValueField).SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
+	return NewNumber(n.ValueField).SetContext(n.Context).SetPos(n.PosStart(), n.PosEnd())
 }
 
 func (n *Number) Type() reflect.Type {

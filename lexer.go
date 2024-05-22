@@ -83,12 +83,17 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			l.Advance()
 		} else if l.CurrentChar == '/' {
 			tokens = append(tokens, l.DivisionOrComment())
-			l.Advance()
 		} else if l.CurrentChar == '(' {
 			tokens = append(tokens, NewToken(TT_LPAREN, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == ')' {
 			tokens = append(tokens, NewToken(TT_RPAREN, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
+		} else if l.CurrentChar == '[' {
+			tokens = append(tokens, NewToken(TT_LSQUARE, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
+		} else if l.CurrentChar == ']' {
+			tokens = append(tokens, NewToken(TT_RSQUARE, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == '^' {
 			tokens = append(tokens, NewToken(TT_POW, nil, l.Pos.Copy(), l.Pos.Copy()))
@@ -105,7 +110,6 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			tokens = append(tokens, l.MakeLessThan())
 		} else if l.CurrentChar == '>' {
 			tokens = append(tokens, l.MakeGreaterThan())
-
 		} else if l.CurrentChar == ',' {
 			tokens = append(tokens, NewToken(TT_COMMA, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
@@ -150,6 +154,7 @@ func (l *Lexer) MakeString() *Token {
 		l.Advance()
 	}
 	l.Advance()
+
 	return &Token{Type: TT_STRING, Value: result, PosStart: posStart, PosEnd: l.Pos}
 }
 

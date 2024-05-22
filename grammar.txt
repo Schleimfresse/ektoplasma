@@ -11,7 +11,9 @@ term		: factor ((MUL|DIV) factor)*
 factor		: (PLUS|MINUS) factor
 			: power
 
-power		: atom (POW factor)*
+power		: call (POW factor)*
+
+call		: atom (LPAREN (expr (COMMA expr)*)? RPAREN)?
 
 atom 		: INT|FLOAT|String|IDENTIFIER
 			: LPAREN expr RPAREN
@@ -20,7 +22,7 @@ atom 		: INT|FLOAT|String|IDENTIFIER
 			: while-expr
 			: func-def
 
-call		: atom (LPAREN (expr (COMMA expr)*)? RPAREN)?
+list-expr   : LSQUARE (expr (COMMA expr)*)? RSQUARE
 
 if-expr		: KEYWORD:IF expr KEYWORD:THEN expr
 			(KEYWORD:ELIF expr KEYWORD:THEN expr)*
@@ -36,7 +38,3 @@ func-def		: KEYWORD:FUN IDENTIFIER?
 				ARROW expr
 
 ! a
-
-
-// TODO points to i: VAR i = 2^n
-                    i

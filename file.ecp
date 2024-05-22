@@ -1,2 +1,1 @@
-FUNC test(a) => a / 0
-test(65645)
+print("hello world")

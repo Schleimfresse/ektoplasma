@@ -21,6 +21,8 @@ const (
 	TT_EQ         TokenTypes = "EQ"
 	TT_LPAREN     TokenTypes = "LPAREN"
 	TT_RPAREN     TokenTypes = "RPAREN"
+	TT_LSQUARE    TokenTypes = "LSQUARE"
+	TT_RSQUARE    TokenTypes = "RSQUARE"
 	TT_POW        TokenTypes = "POW"
 	TT_EE         TokenTypes = "EE"
 	TT_NE         TokenTypes = "NE"
@@ -71,9 +73,11 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 }
 
 func main() {
+	// TODO Number.null, EP 11 "own" type into Number built in
 	GlobalSymbolTable.Set("null", *NewNumber(0))
 	GlobalSymbolTable.Set("false", *NewNumber(0))
 	GlobalSymbolTable.Set("true", *NewNumber(1))
+	GlobalSymbolTable.Set("print", *NewBuildInFunction("Print"))
 
 	fileName := "file.ecp"
 	file, err := os.Open(fileName)
@@ -98,11 +102,13 @@ func main() {
 			break
 		} else if result != nil {
 			if result.Number != nil {
-				fmt.Println("FINAL RESULT:", result.Number.ValueField)
+				fmt.Println(result.Number.ValueField)
 			} else if result.Function != nil {
-				fmt.Println("FINAL RESULT func:", result.Function.String())
+				fmt.Println(result.Function.String())
 			} else if result.String != nil {
-				fmt.Println("FINAL RESULT:", result.String.ValueField)
+				fmt.Println(result.String.ValueField)
+			} else if result.Array != nil {
+				fmt.Println(result.Array.String())
 			}
 		}
 		lineTEMP++

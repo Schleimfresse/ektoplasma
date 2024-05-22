@@ -11,7 +11,6 @@ func NewInterpreter() Interpreter {
 }
 
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
-	log.Println("NODE HEADER:", reflect.TypeOf(node))
 	switch n := node.(type) {
 	case *UnaryOpNode:
 		return i.visitUnaryOpNode(*n, context)
@@ -35,6 +34,8 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitFuncDefNode(*n, context)
 	case *StringNode:
 		return i.visitStringNode(*n, context)
+	case *ArrayNode:
+		return i.visitArrayNode(*n, context)
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -60,6 +61,20 @@ func (i *Interpreter) visitStringNode(node StringNode, context *Context) *RTResu
 		return NewRTResult().Success(value)
 	}
 	return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("%s is not of type string", reflect.TypeOf(node.Value)), context))
+}
+
+func (i *Interpreter) visitArrayNode(node ArrayNode, context *Context) *RTResult {
+	res := NewRTResult()
+	var elements []Value
+
+	for idx := 0; idx < len(node.ElementNodes); idx++ {
+		elements = append(elements, *res.Register(i.visit(node.ElementNodes[idx], context)))
+		if res.Error != nil {
+			return res
+		}
+	}
+
+	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
 func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult {
@@ -90,21 +105,33 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 			result, err = left.String.AddedTo(right.String)
 		} else if left.Number != nil && right.Number != nil {
 			result, err = left.Number.AddedTo(right.Number)
+		} else if left.Array != nil && right.Number != nil {
+			result, err = left.Array.AddedTo(right)
 		} else {
 			return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid types for addition", context))
 		}
 	case TT_MINUS:
-		result, err = left.Number.SubtractedBy(right.Number)
+		if left.Array != nil && right.Number != nil {
+			result, err = left.Array.SubtractedBy(right)
+		} else {
+			result, err = left.Number.SubtractedBy(right.Number)
+		}
 	case TT_MUL:
 		if left.String != nil && right.Number != nil {
 			result, err = left.String.MultipliedBy(right.Number)
 		} else if left.Number != nil && right.Number != nil {
 			result, err = left.Number.MultipliedBy(right.Number)
+		} else if left.Array != nil && right.Array != nil {
+			result, err = left.Array.MultipliedBy(right)
 		} else {
 			return res.Failure(NewRTError(node.OpTok.PosStart, node.OpTok.PosEnd, "Invalid types for multiplication", context))
 		}
 	case TT_DIV:
-		result, err = left.Number.DividedBy(right.Number)
+		if left.Array != nil && right.Number != nil {
+			result, err = left.Array.DividedBy(right)
+		} else {
+			result, err = left.Number.DividedBy(right.Number)
+		}
 	case TT_POW:
 		result, err = left.Number.PowedBy(right.Number)
 	case TT_EE:
@@ -189,9 +216,9 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 	}
 
 	if value.Number != nil {
-		value = *value.Number.Copy().SetPos(value.Number.PosStart(), value.Number.PosEnd())
+		value = *value.Number.Copy().SetPos(value.Number.PosStart(), value.Number.PosEnd()).SetContext(context)
 	} else if value.Function != nil {
-		value = *value.Function.Copy().SetPos(value.Function.PosStart(), value.Function.PosEnd())
+		value = *value.Function.Copy().SetPos(value.Function.PosStart(), value.Function.PosEnd()).SetContext(context)
 	}
 
 	return res.Success(&value)
@@ -244,6 +271,7 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 
 func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 	res := NewRTResult()
+	var elements []Value
 
 	start := res.Register(i.visit(node.StartValueNode, context))
 	if res.Error != nil {
@@ -274,7 +302,7 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 		startNum := start.Number
 		return res.Failure(NewRTError(startNum.PosStart(), startNum.PosEnd(), fmt.Sprintf("Can not use type %s as type int", reflect.TypeOf(startNum.ValueField)), startNum.Context))
 	}
-	if IsInt(end.Number.Value) {
+	if IsInt(end.Number.ValueField) {
 		endValue = end.Number.ValueField.(int)
 	} else {
 		endNum := end.Number
@@ -293,17 +321,18 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 
 		iVal += stepValue.ValueField.(int)
 
-		res.Register(i.visit(node.BodyNode, context))
+		elements = append(elements, *res.Register(i.visit(node.BodyNode, context)))
 		if res.Error != nil {
 			return res
 		}
 	}
 
-	return res.Success(nil)
+	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
 func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult {
 	res := NewRTResult()
+	var elements []Value
 
 	for {
 		condition := res.Register(i.visit(node.ConditionNode, context))
@@ -315,13 +344,13 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 			break
 		}
 
-		res.Register(i.visit(node.BodyNode, context))
+		elements = append(elements, *res.Register(i.visit(node.BodyNode, context)))
 		if res.Error != nil {
 			return res
 		}
 	}
 
-	return res.Success(nil)
+	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
 func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTResult {
@@ -351,35 +380,35 @@ func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTRe
 }
 
 func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
-	log.Println("visitCallNode", node)
 	res := NewRTResult()
 	args := make([]*Value, len(node.ArgNodes))
 	Call := res.Register(i.visit(node.NodeToCall, context))
 	log.Println(node.NodeToCall, context, Call)
-	log.Println("CALL TYPE:", reflect.TypeOf(Call), reflect.TypeOf(i.visit(node.NodeToCall, context).Value))
+
 	if res.Error != nil {
 		return res
 	}
 
 	valueToCall := Call.SetPos(node.PosStart(), node.PosEnd())
 
-	log.Println("valueToCall:", Call)
-
 	for idx, argNode := range node.ArgNodes {
-		log.Println("ARGS:", reflect.TypeOf(argNode), idx, argNode)
 		args[idx] = res.Register(i.visit(argNode, context))
 		if res.Error != nil {
 			return res
 		}
 	}
+	var returnValue *Value
+	if valueToCall.Function != nil {
+		returnValue = res.Register(valueToCall.Function.Execute(args))
+	} else if valueToCall.BuildInFunction != nil {
+		returnValue = res.Register(valueToCall.BuildInFunction.Execute(args))
+	}
 
-	returnValue := res.Register(valueToCall.Function.Execute(args))
 	if res.Error != nil {
 		return res
 	}
 
-	log.Println("FUNC RESULT IN CALL:", returnValue)
-
+	returnValue = returnValue.Copy().SetPos(node.PosStart(), node.PosEnd()).SetContext(context)
 	return res.Success(returnValue)
 }
 
@@ -410,10 +439,14 @@ func (r *RTResult) Failure(error *RuntimeError) *RTResult {
 
 // NewContext creates a new context with the given display name, parent, and parent entry position.
 func NewContext(displayName string, parent *Context, parentEntryPos *Position) *Context {
+	if parent == nil {
+		parent = &Context{}
+	}
 	return &Context{
 		DisplayName:    displayName,
 		Parent:         parent,
 		ParentEntryPos: parentEntryPos,
+		SymbolTable:    &SymbolTable{},
 	}
 }
 
