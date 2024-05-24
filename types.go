@@ -1,5 +1,7 @@
 package main
 
+type Binary int
+
 // UnaryOpNode represents a unary operation node.
 type UnaryOpNode struct {
 	OpTok    *Token
@@ -97,9 +99,10 @@ type Parser struct {
 }
 
 type ParseResult struct {
-	AdvanceCount int
-	Error        *Error
-	Node         Node
+	AdvanceCount   int
+	ToReverseCount int
+	Error          *Error
+	Node           Node
 }
 
 type Error struct {
@@ -141,7 +144,7 @@ type RTResult struct {
 
 // SymbolTable represents a symbol table in the interpreter.
 type SymbolTable struct {
-	symbols map[string]Value
+	symbols map[string]*Value
 	parent  *SymbolTable
 }
 
@@ -230,12 +233,24 @@ type String struct {
 	ValueField                 string
 	PositionStart, PositionEnd *Position
 	Context                    *Context
+	Type                       string
 }
 
 type Array struct {
-	Elements                   []Value
+	Elements                   []*Value
 	PositionStart, PositionEnd *Position
 	Context                    *Context
+}
+
+type Null struct {
+	PositionStart, PositionEnd *Position
+	Context                    *Context
+}
+
+type Boolean struct {
+	PositionStart, PositionEnd *Position
+	Context                    *Context
+	Binary                     Binary
 }
 
 type Value struct {
@@ -244,4 +259,6 @@ type Value struct {
 	BuildInFunction *BuildInFunction
 	String          *String
 	Array           *Array
+	Null            *Null
+	Boolean         *Boolean
 }

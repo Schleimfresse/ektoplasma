@@ -2,8 +2,14 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
+	"log"
 	"os"
+	"path"
+	"path/filepath"
+	"strings"
+	"syscall"
 )
 
 // ecp Ektoplasma (Ektoplasma Code Program)
@@ -32,10 +38,13 @@ const (
 	TT_GTE        TokenTypes = "GTE"
 	TT_EOF        TokenTypes = "EOF"
 	TT_COMMA      TokenTypes = "COMMA"
+	TT_NEWLINE    TokenTypes = "NEWLINE"
 	TT_ARROW      TokenTypes = "ARROW"
+	Zero          Binary     = 0
+	One           Binary     = 1
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END"}
 var GlobalSymbolTable = NewSymbolTable(nil)
 var lineTEMP int
 
@@ -57,46 +66,85 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 	}
 	parser := NewParser(tokens)
 	ast := parser.Parse()
+
 	if ast.Error != nil {
-		fmt.Println("PARSING ERR:", ast.Error.AsString())
+		fmt.Println(ast.Error.AsString())
 		return nil, nil
 	} else {
-		fmt.Println(ast.Node)
+		fmt.Println("AST:	", ast.Node)
 	}
-
+	// TODO fix pos:
+	//IDENTIFIER input START: {0 0 0 file.ecp input()} END: {5 0 5 file.ecp input()}
+	//LPAREN <nil> START: {5 0 5 file.ecp input()} END: {5 0 5 file.ecp input()}
+	//RPAREN <nil> START: {6 0 6 file.ecp input()} END: {6 0 6 file.ecp input()}
 	context := NewContext("<program>", nil, nil)
 	context.SymbolTable = GlobalSymbolTable
 	interpreter := NewInterpreter()
-	result := interpreter.visit(ast.Node, context)
-
+	result := extractFromArrayValue(interpreter.visit(ast.Node, context))
 	return result.Value, result.Error
 }
 
-func main() {
-	// TODO Number.null, EP 11 "own" type into Number built in
-	GlobalSymbolTable.Set("null", *NewNumber(0))
-	GlobalSymbolTable.Set("false", *NewNumber(0))
-	GlobalSymbolTable.Set("true", *NewNumber(1))
-	GlobalSymbolTable.Set("print", *NewBuildInFunction("Print"))
-
-	fileName := "file.ecp"
-	file, err := os.Open(fileName)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
-		return
+// extractFromArrayValue extracts the result value from the Array value type since all data from the result is wrapped in an Array type
+func extractFromArrayValue(visit *RTResult) *RTResult {
+	if visit.Error == nil {
+		return NewRTResult().Success(visit.Value.Array.Elements[0])
+	} else {
+		return visit
 	}
-	defer file.Close()
+}
 
-	scanner := bufio.NewScanner(file)
+func main() {
+	GlobalSymbolTable.Set("null", NewNull())
+	GlobalSymbolTable.Set("false", NewBoolean(0))
+	GlobalSymbolTable.Set("true", NewBoolean(1))
+	GlobalSymbolTable.Set("print", NewBuildInFunction("Print"))
+	GlobalSymbolTable.Set("input", NewBuildInFunction("Input"))
+	GlobalSymbolTable.Set("isString", NewBuildInFunction("isString"))
+	GlobalSymbolTable.Set("isNumber", NewBuildInFunction("isNumber"))
+	GlobalSymbolTable.Set("isFunction", NewBuildInFunction("isFunction"))
+	GlobalSymbolTable.Set("isArray", NewBuildInFunction("isArray"))
+	GlobalSymbolTable.Set("append", NewBuildInFunction("append"))
+
+	if len(os.Args) >= 2 {
+		filePath, _ := filepath.Abs(os.Args[1])
+		fileName := path.Base(filePath)
+		file, err := os.Open(filePath)
+		if err != nil {
+			fmt.Println("Invalid path, cannot open specified file.")
+			return
+		}
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		ScanLine(fileName, scanner)
+	} else {
+		for {
+			buf := make([]byte, 1024)
+			n, err := syscall.Read(syscall.Stdin, buf)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			newReader := bufio.NewReader(bytes.NewReader(buf[:n]))
+			scanner := bufio.NewScanner(newReader)
+			ScanLine("<stdin>", scanner)
+		}
+	}
+}
+
+func ScanLine(fileName string, scanner *bufio.Scanner) {
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		line = strings.ReplaceAll(line, "", "")
+		if line == "" {
+			continue
+		}
 
 		// Process the line
 		fmt.Println("Processing line:", line)
 
 		// Run your function for each line
 		result, err := run(fileName, line)
-
 		if err != nil {
 			fmt.Println(err.AsString())
 			break
@@ -108,12 +156,19 @@ func main() {
 			} else if result.String != nil {
 				fmt.Println(result.String.ValueField)
 			} else if result.Array != nil {
-				fmt.Println(result.Array.String())
+				if len(result.Array.Elements) == 1 {
+					if result.Array.Elements[0].Array != nil {
+						fmt.Println(result.Array.Elements[0].Array.String())
+					}
+				} else {
+					fmt.Println(result.Array.String())
+				}
+			} else {
+				fmt.Println(result.Null.String())
 			}
 		}
 		lineTEMP++
 	}
-
 	if err := scanner.Err(); err != nil {
 		fmt.Println("Error reading file:", err)
 		return

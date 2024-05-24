@@ -66,6 +66,9 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 	for l.CurrentChar != 0 {
 		if l.CurrentChar == ' ' || l.CurrentChar == '\t' {
 			l.Advance()
+		} else if l.CurrentChar == '\n' || l.CurrentChar == ';' {
+			tokens = append(tokens, NewToken(TT_NEWLINE, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
 		} else if isDigit(l.CurrentChar) {
 			tokens = append(tokens, l.MakeNumber())
 		} else if isLetter(l.CurrentChar) {

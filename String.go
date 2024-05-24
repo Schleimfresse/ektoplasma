@@ -1,9 +1,5 @@
 package main
 
-import (
-	"reflect"
-)
-
 func NewString(value string) *Value {
 	return &Value{String: &String{ValueField: value}}
 }
@@ -21,10 +17,6 @@ func (s *String) Copy() *Value {
 
 func (s *String) IsTrue() bool {
 	return len(s.ValueField) > 0
-}
-
-func (s *String) Type() reflect.Type {
-	return reflect.TypeOf(s)
 }
 
 func (s *String) Value() interface{} {

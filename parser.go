@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"reflect"
 	"strconv"
 )
 
@@ -20,6 +19,14 @@ func (pr *ParseResult) Register(res *ParseResult) Node {
 func (pr *ParseResult) Success(node Node) *ParseResult {
 	pr.Node = node
 	return pr
+}
+
+func (pr *ParseResult) TryRegister(res *ParseResult) Node {
+	if res.Error != nil {
+		pr.ToReverseCount = res.AdvanceCount
+		return nil
+	}
+	return pr.Register(res)
 }
 
 // Failure returns a failed parsing result.
@@ -49,20 +56,33 @@ func NewParser(tokens []*Token) *Parser {
 // Advance moves the parser to the next token.
 func (p *Parser) Advance() *Token {
 	p.TokIdx++
-	if p.TokIdx < len(p.Tokens) {
-		p.Current = p.Tokens[p.TokIdx]
-		return nil
-	}
+	p.UpdateCurrentTok()
 	return p.Current
+}
+
+func (p *Parser) Reverse(amount *int) *Token {
+	if amount == nil {
+		defaultAmount := 1
+		amount = &defaultAmount
+	}
+	p.TokIdx -= 1
+	p.UpdateCurrentTok()
+	return p.Current
+}
+
+func (p *Parser) UpdateCurrentTok() {
+	if p.TokIdx >= 0 && p.TokIdx < len(p.Tokens) {
+		p.Current = p.Tokens[p.TokIdx]
+	}
 }
 
 // Parse parses the tokens into an abstract syntax tree.
 func (p *Parser) Parse() *ParseResult {
-	res := p.Expr()
+	res := p.Statements()
 	if res.Error != nil && p.Current.Type != TT_EOF {
-		log.Println("IMP ERR:", res.Error)
-		err := NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'AND' or 'OR'")
-		return res.Failure(err.Error)
+		//log.Println("IMP ERR:", res.Error)
+		//err := NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '+', '-', '*', '/', '^', '==', '!=', '<', '>', <=', '>=', 'AND' or 'OR'")
+		//n.return res.Failure(err.Error)
 	}
 	return res
 }
@@ -110,16 +130,85 @@ func (p *Parser) ListExpr() *ParseResult {
 	return res.Success(NewArrayNode(elementNodes, posStart, p.Current.PosEnd.Copy()))
 }
 
-func (p *Parser) IfExpr() *ParseResult {
+/* func (p *Parser) ifExpr() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+	allCases := res.Register(p.ifExprCases("IF"))
+	if res.Error != nil {
+		return res
+	}
+	cases := allCases[0]
+	elseCase := allCases[1]
+	return res.Success(NewIfNode(cases, elseCase))
+}
+
+func (p *Parser) ifExprB() *ParseResult {
+	return p.ifExprCases("ELIF")
+}
+
+func (p *Parser) ifExprC() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+	var elseCase Node
+
+	if p.Current.Matches(TT_KEYWORD, "ELSE") {
+		res.RegisterAdvancement()
+		p.Advance()
+
+		if p.Current.Type == "NEWLINE" {
+			res.RegisterAdvancement()
+			p.Advance()
+
+			statements := res.Register(p.Statements())
+			if res.Error != nil {
+				return res
+			}
+			elseCase = []interface{}{statements, true}
+
+			if p.Current.Matches("KEYWORD", "END") {
+				res.RegisterAdvancement()
+				p.Advance()
+			} else {
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'KEYWORD', 'END'").Error)
+			}
+		} else {
+			expr := res.Register(p.Expr())
+			if res.Error != nil {
+				return res
+			}
+			elseCase = []interface{}{expr, false}
+		}
+	}
+
+	return res.Success(elseCase)
+}
+
+func (p *Parser) ifExprBOrC() *ParseResult {
+	res := &ParseResult{AdvanceCount: 0}
+	var cases []interface{}
+	var elseCase interface{}
+
+	if p.Current.Matches(TT_KEYWORD, "ELIF") {
+		allCases := res.Register(p.ifExprB())
+		if res.Error != nil {
+			return res
+		}
+		cases, elseCase = allCases.([]interface{})[0], allCases.([]interface{})[1]
+	} else {
+		elseCase = res.Register(p.ifExprC())
+		if res.Error != nil {
+			return res
+		}
+	}
+
+	return res.Success([]*IfCaseNode{cases, elseCase})
+}
+
+func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	var cases []*IfCaseNode
 	var elseCase *ParseResult
 
-	if !p.Current.Matches(TT_KEYWORD, "IF") {
-		return res.Failure(NewInvalidSyntaxError(
-			p.Current.PosStart, p.Current.PosEnd,
-			"Expected 'IF'",
-		).Error)
+	if !p.Current.Matches(TT_KEYWORD, caseKeyword) {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Expected '%s'", caseKeyword)).Error)
 	}
 
 	res.RegisterAdvancement()
@@ -131,61 +220,50 @@ func (p *Parser) IfExpr() *ParseResult {
 	}
 
 	if !p.Current.Matches(TT_KEYWORD, "THEN") {
-		return res.Failure(NewInvalidSyntaxError(
-			p.Current.PosStart, p.Current.PosEnd,
-			"Expected 'THEN'",
-		).Error)
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Expected 'THEN'")).Error)
 	}
 
 	res.RegisterAdvancement()
 	p.Advance()
 
-	expr := res.Register(p.Expr())
-	if res.Error != nil {
-		return res
-	}
-
-	cases = append(cases, NewIfCaseNode(condition, expr))
-
-	for p.Current.Matches(TT_KEYWORD, "ELIF") {
+	if p.Current.Type == "NEWLINE" {
 		res.RegisterAdvancement()
 		p.Advance()
 
-		condition := res.Register(p.Expr())
+		statements := res.Register(p.Statements())
 		if res.Error != nil {
 			return res
 		}
+		cases = append(cases, []interface{}{condition, statements, true})
 
-		if !p.Current.Matches(TT_KEYWORD, "THEN") {
-			return res.Failure(NewInvalidSyntaxError(
-				p.Current.PosStart, p.Current.PosEnd,
-				"Expected 'THEN'",
-			).Error)
+		if p.Current.Matches(TT_KEYWORD, "END") {
+			res.RegisterAdvancement()
+			p.Advance()
+		} else {
+			allCases := res.Register(p.ifExprBOrC())
+			if res.Error != nil {
+				return res
+			}
+			newCases, elseCase := allCases[0], allCases.([]interface{})[1]
+			cases = append(cases, newCases.([]interface{})...)
 		}
-
-		res.RegisterAdvancement()
-		p.Advance()
-
+	} else {
 		expr := res.Register(p.Expr())
 		if res.Error != nil {
 			return res
 		}
-		cases = append(cases, NewIfCaseNode(condition, expr))
-	}
+		cases = append(cases, &IfCaseNode{condition, expr})
 
-	if p.Current.Matches(TT_KEYWORD, "ELSE") {
-		res.RegisterAdvancement()
-		p.Advance()
-		log.Println("ELSE TT:", p.Current)
-		elseCase = res.Success(res.Register(p.Expr()))
-		log.Println("elseCase", elseCase.Node, reflect.TypeOf(elseCase.Node))
+		allCases := res.Register(p.ifExprBOrC())
 		if res.Error != nil {
 			return res
 		}
+		newCases, elseCase := allCases[0], allCases.[1]
+		cases = append(cases, newCases...)
 	}
 
-	return res.Success(NewIfNode(cases, elseCase))
-}
+	return res.Success([]interface{}{cases, elseCase})
+}*/
 
 func (p *Parser) ForExpr() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
@@ -491,11 +569,11 @@ func (p *Parser) Atom() *ParseResult {
 		err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected ')'")
 		return res.Failure(err.Error)
 	} else if tok.Matches(TT_KEYWORD, "IF") {
-		IfExpr := res.Register(p.IfExpr())
+		/*IfExpr := res.Register(p.ifExpr())
 		if res.Error != nil {
 			return res
 		}
-		return res.Success(IfExpr)
+		return res.Success(IfExpr)*/
 	} else if tok.Matches(TT_KEYWORD, "FOR") {
 		IfExpr := res.Register(p.ForExpr())
 		if res.Error != nil {
@@ -571,6 +649,55 @@ func (p *Parser) Term() *ParseResult {
 	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}}, p.Factor)
 }
 
+func (p *Parser) Statements() *ParseResult {
+	res := ParseResult{AdvanceCount: 0}
+
+	// Check if identifier is unexpected
+	if p.Current.Type == TT_IDENTIFIER && !GlobalSymbolTable.Contains(p.Current.Value.(string)) {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Unresolved reference '%s'", p.Current.Value.(string))).Error)
+	}
+
+	var statements []Node
+	PosStart := p.Current.PosStart.Copy()
+
+	for p.Current.Type == TT_NEWLINE {
+		res.RegisterAdvancement()
+		p.Advance()
+	}
+
+	statement := res.Register(p.Expr())
+	if res.Error != nil {
+		return &res
+	}
+	statements = append(statements, statement)
+
+	MoreStatements := true
+
+	for {
+		NewlineCount := 0
+		for p.Current.Type == TT_NEWLINE {
+			res.RegisterAdvancement()
+			p.Advance()
+			NewlineCount++
+		}
+		if NewlineCount == 0 {
+			MoreStatements = false
+		}
+		if !MoreStatements {
+			break
+		}
+		statement = res.TryRegister(p.Expr())
+		if statement == nil {
+			p.Reverse(&res.ToReverseCount)
+			MoreStatements = false
+			continue
+		}
+		statements = append(statements, statement)
+	}
+
+	return res.Success(NewArrayNode(statements, PosStart, p.Current.PosEnd))
+}
+
 // Expr parses an expression.
 func (p *Parser) Expr() *ParseResult {
 	res := ParseResult{AdvanceCount: 0}
@@ -579,7 +706,6 @@ func (p *Parser) Expr() *ParseResult {
 		res.RegisterAdvancement()
 		p.Advance()
 
-		log.Println("IMP ", p.Current, p.Tokens)
 		if p.Current.Type != TT_IDENTIFIER {
 			return res.Failure(NewInvalidSyntaxError(
 				p.Current.PosStart, p.Current.PosEnd,

@@ -1,1 +1,4 @@
-print("hello world")
+VAR list = [1,2,3]
+VAR list2 = list + [1,2,3]
+append(list2, null)
+list2

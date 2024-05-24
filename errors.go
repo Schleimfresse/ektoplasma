@@ -124,8 +124,8 @@ func (e RuntimeError) generateTraceback() string {
 	ctx := e.Context
 
 	ErrorFilePath, _ := filepath.Abs(pos.Fn)
-
 	for ctx != nil {
+		log.Println(e.PosStart, e.PosEnd, e.ErrorName, e.Details, e.Context, pos)
 		result = fmt.Sprintf("File %s, line %d, in %s\n%s", pos.Fn, pos.Ln+1, ctx.DisplayName, result)
 		result += fmt.Sprintf(" %s:%v\n", ErrorFilePath, pos.Ln+1)
 		pos = ctx.ParentEntryPos

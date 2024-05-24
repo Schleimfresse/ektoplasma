@@ -5,8 +5,12 @@ import (
 	"strings"
 )
 
-func NewArray(value []Value) *Value {
-	return &Value{Array: &Array{Elements: value}}
+func NewArray(elements []*Value) *Value {
+	return &Value{
+		Array: &Array{
+			Elements: elements,
+		},
+	}
 }
 
 func (a *Array) Copy() *Value {
@@ -24,7 +28,7 @@ func (a *Array) PosEnd() *Position {
 // Add element to Array
 func (a *Array) AddedTo(other *Value) (*Value, *RuntimeError) {
 	newArray := a.Copy()
-	newArray.Array.Elements = append(newArray.Array.Elements, *other)
+	newArray.Array.Elements = append(newArray.Array.Elements, other)
 	return newArray, nil
 }
 
@@ -51,7 +55,7 @@ func (a *Array) DividedBy(other *Value) (*Value, *RuntimeError) {
 	if other.Number.ValueField.(int) < 0 || other.Number.ValueField.(int) >= len(a.Elements) {
 		return nil, NewRTError(other.Number.PosStart(), other.Number.PosEnd(), fmt.Sprintf("Element at index %v could not be retrieved from array, index is out of bounds", other.Value()), a.Context)
 	}
-	return &a.Elements[other.Number.ValueField.(int)], nil
+	return a.Elements[other.Number.ValueField.(int)], nil
 }
 
 // Error for illegal operation
@@ -66,7 +70,22 @@ func (a *Array) IllegalOperation(other *Array) *RuntimeError {
 func (a *Array) String() string {
 	elementStrings := make([]string, len(a.Elements))
 	for i, element := range a.Elements {
-		elementStrings[i] = fmt.Sprintf("%v", element.Value())
+		switch {
+		case element.Number != nil:
+			elementStrings[i] = fmt.Sprintf("%v", element.Number.ValueField)
+		case element.String != nil:
+			elementStrings[i] = fmt.Sprintf("%q", element.String.ValueField)
+		case element.Array != nil:
+			elementStrings[i] = element.Array.String() // Recursively call String for nested arrays
+		case element.Function != nil:
+			elementStrings[i] = element.Function.String()
+		case element.BuildInFunction != nil:
+			elementStrings[i] = element.BuildInFunction.Base.Name
+		case element.Boolean != nil:
+			elementStrings[i] = element.Boolean.String()
+		default:
+			elementStrings[i] = "<null>"
+		}
 	}
 	return fmt.Sprintf("[%s]", strings.Join(elementStrings, ", "))
 }
