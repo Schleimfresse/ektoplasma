@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // NewNumberNode creates a new NumberNode instance.
 func NewNumberNode(tok *Token) *NumberNode {
@@ -52,23 +54,36 @@ func NewVarAssignNode(varNameTok *Token, valueNode Node) *VarAssignNode {
 	return &VarAssignNode{varNameTok, valueNode, varNameTok.PosStart, varNameTok.PosEnd}
 }
 
-func NewIfCaseNode(condition, expr Node) *IfCaseNode {
-	return &IfCaseNode{condition, expr}
+func NewIfCaseNode(condition, expr Node, flag bool) *IfCaseNode {
+	return &IfCaseNode{condition, expr, flag}
 }
 
-func NewIfNode(cases []*IfCaseNode, elseCase *ParseResult) *IfNode {
+func NewIfNode(cases []*IfCaseNode, elseCase *ElseCaseNode) *IfNode {
 	var posEnd *Position
+	var posStart *Position
 
 	if elseCase != nil {
-		posEnd = elseCase.Node.PosEnd()
+		posEnd = elseCase.PosEnd()
 	} else {
 		lastCondition := cases[len(cases)-1].Condition
 		posEnd = lastCondition.PosEnd()
 	}
-	return &IfNode{cases, elseCase.Node.(*NumberNode), cases[0].Expr.PosStart(), posEnd}
+
+	// in case we handle an else, cases will be nil
+	if cases == nil {
+		posStart = elseCase.PosStart()
+	} else {
+		posStart = cases[0].PosStart()
+	}
+
+	return &IfNode{cases, elseCase, posStart, posEnd}
 }
 
-func NewForNode(varNameTok *Token, startValueNode, endValueNode, stepValueNode, bodyNode Node) *ForNode {
+func NewElseCaseNode(statement Node, flag bool) *ElseCaseNode {
+	return &ElseCaseNode{statement, flag}
+}
+
+func NewForNode(varNameTok *Token, startValueNode, endValueNode, stepValueNode, bodyNode Node, Flag bool) *ForNode {
 	return &ForNode{
 		VarNameTok:     varNameTok,
 		StartValueNode: startValueNode,
@@ -77,19 +92,21 @@ func NewForNode(varNameTok *Token, startValueNode, endValueNode, stepValueNode, 
 		BodyNode:       bodyNode,
 		PositionStart:  varNameTok.PosStart,
 		PositionEnd:    bodyNode.PosEnd(),
+		Flag:           Flag,
 	}
 }
 
-func NewWhileNode(conditionNode, bodyNode Node) *WhileNode {
+func NewWhileNode(conditionNode, bodyNode Node, Flag bool) *WhileNode {
 	return &WhileNode{
 		ConditionNode: conditionNode,
 		BodyNode:      bodyNode,
 		PositionStart: conditionNode.PosStart(),
 		PositionEnd:   bodyNode.PosEnd(),
+		Flag:          Flag,
 	}
 }
 
-func NewFuncDefNode(varNameTok *Token, argNameToks []*Token, bodyNode Node) *FuncDefNode {
+func NewFuncDefNode(varNameTok *Token, argNameToks []*Token, bodyNode Node, Flag bool) *FuncDefNode {
 	var posStart, posEnd *Position
 
 	if varNameTok != nil {
@@ -108,6 +125,7 @@ func NewFuncDefNode(varNameTok *Token, argNameToks []*Token, bodyNode Node) *Fun
 		BodyNode:      bodyNode,
 		PositionStart: posStart,
 		PositionEnd:   posEnd,
+		Flag:          Flag,
 	}
 }
 
@@ -287,4 +305,32 @@ func (v *VarAccessNode) PosStart() *Position {
 
 func (v *VarAccessNode) PosEnd() *Position {
 	return v.VarNameTok.PosEnd
+}
+
+// PosStart returns the start position of the number node.
+func (i *IfCaseNode) PosStart() *Position {
+	return i.Condition.PosStart()
+}
+
+// PosEnd returns the end position of the number node.
+func (i *IfCaseNode) PosEnd() *Position {
+	return i.Condition.PosEnd()
+}
+
+func (i *IfCaseNode) String() string {
+	return fmt.Sprintf("%v, %v", i.Expr, i.Condition)
+}
+
+// PosStart returns the start position of the number node.
+func (e *ElseCaseNode) PosStart() *Position {
+	return e.Expr.PosStart()
+}
+
+// PosEnd returns the end position of the number node.
+func (e *ElseCaseNode) PosEnd() *Position {
+	return e.Expr.PosEnd()
+}
+
+func (e *ElseCaseNode) String() string {
+	return fmt.Sprintf("%v, %v", e.Expr, e.Flag)
 }

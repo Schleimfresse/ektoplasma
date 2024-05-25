@@ -17,7 +17,7 @@ func (b *Boolean) PosEnd() *Position {
 }
 
 func (b *Boolean) IsTrue() bool {
-	return false
+	return b.Binary == One
 }
 
 func (b *Boolean) String() string {

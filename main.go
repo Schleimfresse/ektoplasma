@@ -44,7 +44,7 @@ const (
 	One           Binary     = 1
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END", "IMPORT"}
 var GlobalSymbolTable = NewSymbolTable(nil)
 var lineTEMP int
 
@@ -70,8 +70,6 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 	if ast.Error != nil {
 		fmt.Println(ast.Error.AsString())
 		return nil, nil
-	} else {
-		fmt.Println("AST:	", ast.Node)
 	}
 	// TODO fix pos:
 	//IDENTIFIER input START: {0 0 0 file.ecp input()} END: {5 0 5 file.ecp input()}
@@ -80,17 +78,8 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 	context := NewContext("<program>", nil, nil)
 	context.SymbolTable = GlobalSymbolTable
 	interpreter := NewInterpreter()
-	result := extractFromArrayValue(interpreter.visit(ast.Node, context))
+	result := interpreter.visit(ast.Node, context)
 	return result.Value, result.Error
-}
-
-// extractFromArrayValue extracts the result value from the Array value type since all data from the result is wrapped in an Array type
-func extractFromArrayValue(visit *RTResult) *RTResult {
-	if visit.Error == nil {
-		return NewRTResult().Success(visit.Value.Array.Elements[0])
-	} else {
-		return visit
-	}
 }
 
 func main() {
@@ -98,12 +87,14 @@ func main() {
 	GlobalSymbolTable.Set("false", NewBoolean(0))
 	GlobalSymbolTable.Set("true", NewBoolean(1))
 	GlobalSymbolTable.Set("print", NewBuildInFunction("Print"))
+	GlobalSymbolTable.Set("println", NewBuildInFunction("PrintLn"))
 	GlobalSymbolTable.Set("input", NewBuildInFunction("Input"))
 	GlobalSymbolTable.Set("isString", NewBuildInFunction("isString"))
 	GlobalSymbolTable.Set("isNumber", NewBuildInFunction("isNumber"))
 	GlobalSymbolTable.Set("isFunction", NewBuildInFunction("isFunction"))
 	GlobalSymbolTable.Set("isArray", NewBuildInFunction("isArray"))
 	GlobalSymbolTable.Set("append", NewBuildInFunction("append"))
+	GlobalSymbolTable.Set("len", NewBuildInFunction("len"))
 
 	if len(os.Args) >= 2 {
 		filePath, _ := filepath.Abs(os.Args[1])
@@ -145,9 +136,12 @@ func ScanLine(fileName string, scanner *bufio.Scanner) {
 
 		// Run your function for each line
 		result, err := run(fileName, line)
+
+		// log.Println("RESULT:", result)
 		if err != nil {
 			fmt.Println(err.AsString())
 			break
+
 		} else if result != nil {
 			if result.Number != nil {
 				fmt.Println(result.Number.ValueField)
@@ -156,13 +150,13 @@ func ScanLine(fileName string, scanner *bufio.Scanner) {
 			} else if result.String != nil {
 				fmt.Println(result.String.ValueField)
 			} else if result.Array != nil {
-				if len(result.Array.Elements) == 1 {
-					if result.Array.Elements[0].Array != nil {
-						fmt.Println(result.Array.Elements[0].Array.String())
-					}
+				if len(result.Array.Elements) == 1 && result.Array.Elements[0] != nil {
+					fmt.Println(result.Array.Elements[0].Value())
 				} else {
 					fmt.Println(result.Array.String())
 				}
+			} else if result.Boolean != nil {
+				fmt.Println(result.Boolean.String())
 			} else {
 				fmt.Println(result.Null.String())
 			}

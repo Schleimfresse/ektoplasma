@@ -153,11 +153,9 @@ func (v *Value) Type() string {
 func interfaceToBytes(data interface{}) []byte {
 	switch v := data.(type) {
 	case string:
-		v += "\n"
 		return []byte(v)
 	case int:
 		dataString := strconv.Itoa(v)
-		dataString += "\n"
 		return []byte(dataString)
 	}
 	panic("unexpected type" + reflect.TypeOf(data).String())

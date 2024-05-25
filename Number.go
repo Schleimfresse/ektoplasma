@@ -300,8 +300,4 @@ func (n *Number) Notted() (*Value, *RuntimeError) {
 	return value, nil
 }
 
-func (n *Number) IsTrue() bool {
-	return n.ValueField != 0
-}
-
 // TODO Value interface or type wrapper, in it all Value types (Number, Function, etc.) only specific function, when Value needed select appropriate type and utilize specific methods

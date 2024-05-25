@@ -19,7 +19,7 @@ func (s *String) IsTrue() bool {
 	return len(s.ValueField) > 0
 }
 
-func (s *String) Value() interface{} {
+func (s *String) Value() string {
 	return s.ValueField
 }
 

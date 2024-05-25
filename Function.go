@@ -2,16 +2,15 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 	"syscall"
 )
 
 // NewFunction creates a new Function instance.
-func NewFunction(name *string, bodyNode *Node, argNames []string) *Value {
+func NewFunction(name *string, bodyNode *Node, argNames []string, Flag bool) *Value {
 	baseFunc := NewBaseFunction(name)
-	return &Value{Function: &Function{bodyNode, argNames, baseFunc}}
+	return &Value{Function: &Function{bodyNode, argNames, baseFunc, Flag}}
 }
 
 // Execute executes the function with the given arguments.
@@ -37,12 +36,16 @@ func (f *Function) Execute(args []*Value) *RTResult {
 	if res.Error != nil {
 		return res
 	}
+
+	if f.Flag {
+		return res.Success(NewNull())
+	}
 	return res.Success(Value)
 }
 
 // Copy creates a copy of the function.
 func (f *Function) Copy() *Value {
-	return NewFunction(&f.Base.Name, f.BodyNode, f.ArgNames).SetContext(f.Base.Context).SetPos(f.PosStart(), f.PosEnd())
+	return NewFunction(&f.Base.Name, f.BodyNode, f.ArgNames, f.Flag).SetContext(f.Base.Context).SetPos(f.PosStart(), f.PosEnd())
 }
 
 // String returns the string representation of the function.
@@ -85,7 +88,6 @@ func (b *BaseFunction) PosEnd() *Position {
 
 func (b *BaseFunction) GenerateNewContext() *Context {
 	newContext := NewContext(b.Name, b.Context, b.PosStart())
-	log.Println(newContext.Parent, b.Context)
 	newContext.SymbolTable = NewSymbolTable(newContext.Parent.SymbolTable)
 	return newContext
 }
@@ -133,12 +135,14 @@ func (b *BaseFunction) CheckAndPopulateArgs(argNames []string, args []*Value, ex
 func NewBuildInFunction(name string) *Value {
 	BuildInFn := &BuildInFunction{Base: NewBaseFunction(&name), Methods: make(map[string]Method)}
 	BuildInFn.Methods["Print"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.executePrint}
+	BuildInFn.Methods["PrintLn"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.executePrintLn}
 	BuildInFn.Methods["Input"] = Method{ArgsNames: nil, Fn: BuildInFn.executeInput}
 	BuildInFn.Methods["isString"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.executeIsString}
 	BuildInFn.Methods["isNumber"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.executeIsNumber}
 	BuildInFn.Methods["isFunction"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.executeIsFunction}
 	BuildInFn.Methods["isArray"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteIsArray}
 	BuildInFn.Methods["append"] = Method{ArgsNames: []string{"array", "value"}, Fn: BuildInFn.ExecuteAppend}
+	BuildInFn.Methods["len"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteLen}
 
 	return &Value{BuildInFunction: BuildInFn}
 
@@ -147,7 +151,6 @@ func NewBuildInFunction(name string) *Value {
 func (b *BuildInFunction) Execute(args []*Value) *RTResult {
 	res := NewRTResult()
 	execCtx := b.Base.GenerateNewContext()
-
 	method, ok := b.Methods[b.Base.Name]
 	if !ok {
 		b.noVisitMethod()
@@ -183,6 +186,21 @@ func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
 
 	if exists {
 		_, err := syscall.Write(syscall.Stdout, interfaceToBytes(value.Value()))
+		if err != nil {
+			return nil
+		}
+	}
+
+	return NewRTResult().Success(NewNull())
+}
+
+func (b *BuildInFunction) executePrintLn(execCtx *Context) *RTResult {
+	value, exists := execCtx.SymbolTable.Get("value")
+
+	if exists {
+		data := interfaceToBytes(value.Value())
+		data = append(data, 10)
+		_, err := syscall.Write(syscall.Stdout, data)
 		if err != nil {
 			return nil
 		}
@@ -275,5 +293,18 @@ func (b *BuildInFunction) ExecuteAppend(execCtx *Context) *RTResult {
 	}
 
 	array.Array.Elements = append(array.Array.Elements, value)
+	return NewRTResult().Success(NewNull())
+}
+
+func (b *BuildInFunction) ExecuteLen(execCtx *Context) *RTResult {
+	value, _ := execCtx.SymbolTable.Get("value")
+	if value.Array != nil {
+		return NewRTResult().Success(NewNumber(len(value.Array.Elements)))
+	} else if value.String != nil {
+		return NewRTResult().Success(NewNumber(len(value.String.ValueField)))
+	} else {
+		return NewRTResult().Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("argument must be an Array or String, got: %v", value.Type()), execCtx))
+	}
+
 	return NewRTResult().Success(NewNull())
 }

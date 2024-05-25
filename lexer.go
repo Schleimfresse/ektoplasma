@@ -264,12 +264,12 @@ func (l *Lexer) DivisionOrComment() *Token {
 	tokenType := TT_DIV
 	l.Advance()
 
-	/*if l.CurrentChar == '/' {
+	if l.CurrentChar == '/' {
 		charLeft := len(l.Text) - l.Pos.Idx
 		for _ = range charLeft {
 			l.Advance()
 		}
-	}*/
+	}
 
 	return &Token{tokenType, nil, posStart, l.Pos}
 }

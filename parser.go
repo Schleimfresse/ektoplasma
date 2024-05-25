@@ -130,30 +130,42 @@ func (p *Parser) ListExpr() *ParseResult {
 	return res.Success(NewArrayNode(elementNodes, posStart, p.Current.PosEnd.Copy()))
 }
 
-/* func (p *Parser) ifExpr() *ParseResult {
+// ifExpr is a method of Parser that handles 'IF' expressions.
+func (p *Parser) ifExpr() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
 	allCases := res.Register(p.ifExprCases("IF"))
 	if res.Error != nil {
 		return res
 	}
-	cases := allCases[0]
-	elseCase := allCases[1]
-	return res.Success(NewIfNode(cases, elseCase))
+	cases, ok := allCases.(*IfNode)
+	if !ok {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "unexpected type or insufficient length for allCases").Error)
+	}
+	caseNodes := cases.Cases
+	elseCaseNode := cases.ElseCase
+	parsedCases := make([]*IfCaseNode, len(caseNodes))
+	for i, c := range caseNodes {
+		parsedCases[i] = c
+	}
+	return res.Success(NewIfNode(parsedCases, elseCaseNode))
 }
 
+// ifExprB is a method of Parser that handles 'ELIF' in if expressions.
 func (p *Parser) ifExprB() *ParseResult {
 	return p.ifExprCases("ELIF")
 }
 
+// ifExprC is a method of Parser that handles 'ELSE' in if expressions.
 func (p *Parser) ifExprC() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
-	var elseCase Node
+
+	var elseCase *ElseCaseNode
 
 	if p.Current.Matches(TT_KEYWORD, "ELSE") {
 		res.RegisterAdvancement()
 		p.Advance()
 
-		if p.Current.Type == "NEWLINE" {
+		if p.Current.Type == TT_NEWLINE {
 			res.RegisterAdvancement()
 			p.Advance()
 
@@ -161,51 +173,58 @@ func (p *Parser) ifExprC() *ParseResult {
 			if res.Error != nil {
 				return res
 			}
-			elseCase = []interface{}{statements, true}
+			elseCase = NewElseCaseNode(statements, true)
 
-			if p.Current.Matches("KEYWORD", "END") {
+			if p.Current.Matches(TT_KEYWORD, "END") {
 				res.RegisterAdvancement()
 				p.Advance()
 			} else {
-				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'KEYWORD', 'END'").Error)
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'END'").Error)
 			}
 		} else {
 			expr := res.Register(p.Expr())
 			if res.Error != nil {
 				return res
 			}
-			elseCase = []interface{}{expr, false}
+			elseCase = NewElseCaseNode(expr, false)
 		}
 	}
 
 	return res.Success(elseCase)
 }
 
+// ifExprBOrC is a method of Parser that handles 'ELIF' or 'ELSE' in if expressions.
 func (p *Parser) ifExprBOrC() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
-	var cases []interface{}
-	var elseCase interface{}
+	var cases []*IfCaseNode
+	var elseCase *ElseCaseNode
 
 	if p.Current.Matches(TT_KEYWORD, "ELIF") {
 		allCases := res.Register(p.ifExprB())
 		if res.Error != nil {
 			return res
 		}
-		cases, elseCase = allCases.([]interface{})[0], allCases.([]interface{})[1]
+		ifNode, ok := allCases.(*IfNode)
+		if !ok {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "unexpected type for allCases").Error)
+		}
+		cases, elseCase = ifNode.Cases, ifNode.ElseCase
 	} else {
-		elseCase = res.Register(p.ifExprC())
+		elseCaseResult := res.Register(p.ifExprC())
 		if res.Error != nil {
 			return res
 		}
+		elseCase = elseCaseResult.(*ElseCaseNode)
 	}
 
-	return res.Success([]*IfCaseNode{cases, elseCase})
+	return res.Success(NewIfNode(cases, elseCase))
 }
 
+// ifExprCases is a method of Parser that handles cases in if expressions.
 func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
-	var cases []*IfCaseNode
-	var elseCase *ParseResult
+	cases := make([]*IfCaseNode, 0)
+	var elseCase *ElseCaseNode
 
 	if !p.Current.Matches(TT_KEYWORD, caseKeyword) {
 		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Expected '%s'", caseKeyword)).Error)
@@ -220,13 +239,13 @@ func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 	}
 
 	if !p.Current.Matches(TT_KEYWORD, "THEN") {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Expected 'THEN'")).Error)
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'THEN'").Error)
 	}
 
 	res.RegisterAdvancement()
 	p.Advance()
 
-	if p.Current.Type == "NEWLINE" {
+	if p.Current.Type == TT_NEWLINE {
 		res.RegisterAdvancement()
 		p.Advance()
 
@@ -234,7 +253,7 @@ func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 		if res.Error != nil {
 			return res
 		}
-		cases = append(cases, []interface{}{condition, statements, true})
+		cases = append(cases, NewIfCaseNode(condition, statements, true))
 
 		if p.Current.Matches(TT_KEYWORD, "END") {
 			res.RegisterAdvancement()
@@ -244,26 +263,34 @@ func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 			if res.Error != nil {
 				return res
 			}
-			newCases, elseCase := allCases[0], allCases.([]interface{})[1]
-			cases = append(cases, newCases.([]interface{})...)
+			ifNode, ok := allCases.(*IfNode)
+			if !ok {
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "unexpected type for allCases").Error)
+			}
+			cases = append(cases, ifNode.Cases...)
+			elseCase = ifNode.ElseCase
 		}
 	} else {
 		expr := res.Register(p.Expr())
 		if res.Error != nil {
 			return res
 		}
-		cases = append(cases, &IfCaseNode{condition, expr})
+		cases = append(cases, NewIfCaseNode(condition, expr, false))
 
 		allCases := res.Register(p.ifExprBOrC())
 		if res.Error != nil {
 			return res
 		}
-		newCases, elseCase := allCases[0], allCases.[1]
-		cases = append(cases, newCases...)
+		ifNode, ok := allCases.(*IfNode)
+		if !ok {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "unexpected type for allCases").Error)
+		}
+		cases = append(cases, ifNode.Cases...)
+		elseCase = ifNode.ElseCase
 	}
 
-	return res.Success([]interface{}{cases, elseCase})
-}*/
+	return res.Success(NewIfNode(cases, elseCase))
+}
 
 func (p *Parser) ForExpr() *ParseResult {
 	res := &ParseResult{AdvanceCount: 0}
@@ -340,12 +367,30 @@ func (p *Parser) ForExpr() *ParseResult {
 	res.RegisterAdvancement()
 	p.Advance()
 
+	if p.Current.Type == TT_NEWLINE {
+		body := res.Register(p.Expr())
+		if res.Error != nil {
+			return res
+		}
+		if res.Error != nil {
+			return res
+		}
+		if !p.Current.Matches(TT_KEYWORD, "END") {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'END'").Error)
+		}
+
+		res.RegisterAdvancement()
+		p.Advance()
+
+		return res.Success(NewForNode(varName, startValue, endValue, stepValue, body, true))
+	}
+
 	body := res.Register(p.Expr())
 	if res.Error != nil {
 		return res
 	}
 
-	return res.Success(NewForNode(varName, startValue, endValue, stepValue, body))
+	return res.Success(NewForNode(varName, startValue, endValue, stepValue, body, false))
 }
 
 func (p *Parser) WhileExpr() *ParseResult {
@@ -373,15 +418,31 @@ func (p *Parser) WhileExpr() *ParseResult {
 		).Error)
 	}
 
-	res.RegisterAdvancement()
-	p.Advance()
+	if p.Current.Type == TT_NEWLINE {
+		res.RegisterAdvancement()
+		p.Advance()
+
+		body := res.Register(p.Statements())
+		if res.Error != nil {
+			return res
+		}
+
+		if !p.Current.Matches(TT_KEYWORD, "END") {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'END'").Error)
+		}
+
+		res.RegisterAdvancement()
+		p.Advance()
+
+		return res.Success(NewWhileNode(condition, body, true))
+	}
 
 	body := res.Register(p.Expr())
 	if res.Error != nil {
 		return res
 	}
 
-	return res.Success(NewWhileNode(condition, body))
+	return res.Success(NewWhileNode(condition, body, false))
 }
 
 func (p *Parser) Call() *ParseResult {
@@ -504,22 +565,38 @@ func (p *Parser) FuncDef() *ParseResult {
 	res.RegisterAdvancement()
 	p.Advance()
 
-	if p.Current.Type != TT_ARROW {
-		return res.Failure(NewInvalidSyntaxError(
-			p.Current.PosStart, p.Current.PosEnd,
-			"Expected '->'",
-		).Error)
+	if p.Current.Type == TT_ARROW {
+		res.RegisterAdvancement()
+		p.Advance()
+
+		body := res.Register(p.Expr())
+		if res.Error != nil {
+			return res
+		}
+
+		return res.Success(NewFuncDefNode(VarNameToken, ArgNameTokens, body, false))
+	}
+
+	if p.Current.Type != TT_NEWLINE {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '=>' or NEWLINE").Error)
 	}
 
 	res.RegisterAdvancement()
 	p.Advance()
-	NodeToReturn := res.Register(p.Expr())
 
+	body := res.Register(p.Expr())
 	if res.Error != nil {
 		return res
 	}
 
-	return res.Success(NewFuncDefNode(VarNameToken, ArgNameTokens, NodeToReturn))
+	if !p.Current.Matches(TT_KEYWORD, "END") {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'END'").Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	return res.Success(NewFuncDefNode(VarNameToken, ArgNameTokens, body, true))
 }
 
 func (p *Parser) Atom() *ParseResult {
@@ -569,11 +646,11 @@ func (p *Parser) Atom() *ParseResult {
 		err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected ')'")
 		return res.Failure(err.Error)
 	} else if tok.Matches(TT_KEYWORD, "IF") {
-		/*IfExpr := res.Register(p.ifExpr())
+		IfExpr := res.Register(p.ifExpr())
 		if res.Error != nil {
 			return res
 		}
-		return res.Success(IfExpr)*/
+		return res.Success(IfExpr)
 	} else if tok.Matches(TT_KEYWORD, "FOR") {
 		IfExpr := res.Register(p.ForExpr())
 		if res.Error != nil {

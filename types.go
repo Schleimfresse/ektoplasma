@@ -151,11 +151,17 @@ type SymbolTable struct {
 type IfCaseNode struct {
 	Condition Node
 	Expr      Node
+	Flag      bool
+}
+
+type ElseCaseNode struct {
+	Expr Node
+	Flag bool
 }
 
 type IfNode struct {
 	Cases         []*IfCaseNode
-	ElseCase      *NumberNode
+	ElseCase      *ElseCaseNode
 	PositionStart *Position
 	PositionEnd   *Position
 }
@@ -165,6 +171,7 @@ type WhileNode struct {
 	BodyNode      Node
 	PositionStart *Position
 	PositionEnd   *Position
+	Flag          bool
 }
 
 type ForNode struct {
@@ -175,6 +182,7 @@ type ForNode struct {
 	BodyNode       Node
 	PositionStart  *Position
 	PositionEnd    *Position
+	Flag           bool
 }
 
 type FuncDefNode struct {
@@ -183,6 +191,7 @@ type FuncDefNode struct {
 	BodyNode      Node
 	PositionStart *Position
 	PositionEnd   *Position
+	Flag          bool
 }
 
 type CallNode struct {
@@ -203,6 +212,7 @@ type Function struct {
 	BodyNode *Node
 	ArgNames []string
 	Base     *BaseFunction
+	Flag     bool
 }
 
 type BuildInFunction struct {

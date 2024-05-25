@@ -270,25 +270,31 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 			return res
 		}
 
-		conditionValue := value.Number
+		conditionValue := value.Boolean
 		if conditionValue.IsTrue() {
 			exprValue := res.Register(i.visit(ifcase.Expr, context))
 			if res.Error != nil {
 				return res
+			}
+			if ifcase.Flag {
+				return res.Success(NewNull())
 			}
 			return res.Success(exprValue)
 		}
 	}
 
 	if node.ElseCase != nil {
-		elseValue := res.Register(i.visit(node.ElseCase, context))
+		elseValue := res.Register(i.visit(node.ElseCase.Expr, context))
 		if res.Error != nil {
 			return res
+		}
+		if node.ElseCase.Flag {
+			return res.Success(NewNull())
 		}
 		return res.Success(elseValue)
 	}
 
-	return res.Success(nil)
+	return res.Success(NewNull())
 }
 
 func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
@@ -349,6 +355,9 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 		}
 	}
 
+	if node.Flag {
+		return res.Success(NewNull())
+	}
 	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
@@ -362,7 +371,7 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 			return res
 		}
 
-		if !condition.Number.IsTrue() {
+		if !condition.Boolean.IsTrue() {
 			break
 		}
 
@@ -372,6 +381,9 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 		}
 	}
 
+	if node.Flag {
+		return res.Success(NewNull())
+	}
 	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
 
@@ -391,7 +403,7 @@ func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTRe
 		argNames[idx] = argName.Value.(string)
 	}
 
-	value := NewFunction(funcName, &node.BodyNode, argNames)
+	value := NewFunction(funcName, &node.BodyNode, argNames, node.Flag)
 	value.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
 
 	if node.VarNameTok != nil {
