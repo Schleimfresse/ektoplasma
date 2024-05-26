@@ -15,10 +15,10 @@ func (p *Position) Advance(currentChar byte) *Position {
 	p.Idx++
 	p.Col++
 
-	if currentChar == '\n' {
+	/*if currentChar == '\n' {
 		p.Ln++
 		p.Col = 0
-	}
+	}*/
 
 	return p
 }
@@ -61,12 +61,12 @@ func (l *Lexer) Advance() {
 
 // MakeTokens tokenizes the input text.
 func (l *Lexer) MakeTokens() ([]*Token, *Error) {
-	tokens := []*Token{}
+	var tokens []*Token
 
 	for l.CurrentChar != 0 {
-		if l.CurrentChar == ' ' || l.CurrentChar == '\t' {
+		if l.CurrentChar == ' ' || l.CurrentChar == '\t' || l.CurrentChar == '\r' { // macos only uses \r may adapt to register only \r as newline
 			l.Advance()
-		} else if l.CurrentChar == '\n' || l.CurrentChar == ';' {
+		} else if l.CurrentChar == '\n' || l.CurrentChar == ';' /* || l.CurrentChar == '\v'*/ {
 			tokens = append(tokens, NewToken(TT_NEWLINE, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if isDigit(l.CurrentChar) {

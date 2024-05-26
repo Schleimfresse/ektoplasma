@@ -138,8 +138,11 @@ type ExpectedCharError struct {
 
 // RTResult represents the result of a runtime operation.
 type RTResult struct {
-	Value *Value
-	Error *RuntimeError
+	Value              *Value
+	Error              *RuntimeError
+	FuncReturnValue    *Value
+	LoopShouldContinue bool
+	LoopShouldBreak    bool
 }
 
 // SymbolTable represents a symbol table in the interpreter.
@@ -203,6 +206,22 @@ type CallNode struct {
 
 type ArrayNode struct {
 	ElementNodes  []Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type ReturnNode struct {
+	NodeToReturn  Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type BreakNode struct {
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type ContinueNode struct {
 	PositionStart *Position
 	PositionEnd   *Position
 }

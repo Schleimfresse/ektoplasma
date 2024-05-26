@@ -16,10 +16,6 @@ func (n *Null) PosEnd() *Position {
 	return n.PositionEnd
 }
 
-func (n *Null) IsTrue() bool {
-	return false
-}
-
 func (n *Null) String() string {
 	return "<null>"
 }

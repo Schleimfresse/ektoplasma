@@ -20,7 +20,7 @@ func (f *Function) Execute(args []*Value) *RTResult {
 	execCtx := f.Base.GenerateNewContext()
 
 	res.Register(f.Base.CheckAndPopulateArgs(f.ArgNames, args, execCtx))
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
@@ -32,15 +32,28 @@ func (f *Function) Execute(args []*Value) *RTResult {
 		))
 	}
 
-	Value := res.Register(interpreter.visit(*f.BodyNode, execCtx))
-	if res.Error != nil {
+	value := res.Register(interpreter.visit(*f.BodyNode, execCtx))
+	if res.ShouldReturn() && res.FuncReturnValue == nil {
 		return res
 	}
 
+	var ReturnValue *Value
 	if f.Flag {
-		return res.Success(NewNull())
+		if !value.IsEmpty() {
+			ReturnValue = value
+		} else if res.FuncReturnValue != nil {
+			ReturnValue = res.FuncReturnValue
+		} else {
+			ReturnValue = NewNull()
+		}
+	} else {
+		if res.FuncReturnValue != nil {
+			ReturnValue = res.FuncReturnValue
+		} else {
+			ReturnValue = NewNull()
+		}
 	}
-	return res.Success(Value)
+	return res.Success(ReturnValue)
 }
 
 // Copy creates a copy of the function.
@@ -191,12 +204,12 @@ func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
 		}
 	}
 
-	return NewRTResult().Success(NewNull())
+	return NewRTResult().Success(NewEmptyValue())
 }
 
 func (b *BuildInFunction) executePrintLn(execCtx *Context) *RTResult {
 	value, exists := execCtx.SymbolTable.Get("value")
-
+	fmt.Println()
 	if exists {
 		data := interfaceToBytes(value.Value())
 		data = append(data, 10)
@@ -205,8 +218,8 @@ func (b *BuildInFunction) executePrintLn(execCtx *Context) *RTResult {
 			return nil
 		}
 	}
-	null, _ := GlobalSymbolTable.Get("null")
-	return NewRTResult().Success(null)
+
+	return NewRTResult().Success(NewEmptyValue())
 }
 
 func (b *BuildInFunction) executeInput(execCtx *Context) *RTResult {

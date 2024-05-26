@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 func ConvertBoolToInt(expr bool) Binary {
@@ -64,20 +65,22 @@ func (v *Value) SetPos(posStart *Position, posEnd *Position) *Value {
 
 // Value retrieves the Value of the type if available
 func (v *Value) Value() interface{} {
-	if v.Number != nil {
-		return v.Number.Value()
-	} else if v.String != nil {
-		return v.String.Value()
-	} else if v.Function != nil {
-		return v.Function.String()
-	} else if v.Array != nil {
-		return v.Array.Elements
-	} else if v.BuildInFunction != nil {
-		return v.BuildInFunction.String()
-	} else if v.Null != nil {
-		return v.Null.String()
-	} else if v.Boolean != nil {
-		return v.Boolean.String()
+	if v != nil {
+		if v.Number != nil {
+			return v.Number.Value()
+		} else if v.String != nil {
+			return v.String.Value()
+		} else if v.Function != nil {
+			return v.Function.String()
+		} else if v.Array != nil {
+			return v.Array.String()
+		} else if v.BuildInFunction != nil {
+			return v.BuildInFunction.String()
+		} else if v.Null != nil {
+			return v.Null.String()
+		} else if v.Boolean != nil {
+			return v.Boolean.String()
+		}
 	}
 	return v
 }
@@ -150,15 +153,58 @@ func (v *Value) Type() string {
 	return ""
 }
 
+func (v *Value) IsEmpty() bool {
+	if v != nil {
+		return v.Number == nil &&
+			v.String == nil &&
+			v.Boolean == nil &&
+			v.Array == nil &&
+			v.Null == nil && v.BuildInFunction == nil && v.Function == nil
+	}
+	return false
+}
+
 func interfaceToBytes(data interface{}) []byte {
 	switch v := data.(type) {
 	case string:
 		return []byte(v)
 	case int:
-		dataString := strconv.Itoa(v)
-		return []byte(dataString)
+		return []byte(strconv.Itoa(v))
+	case float64:
+		return []byte(strconv.FormatFloat(v, 'f', -1, 64))
+	case []string:
+		return []byte(strings.Join(v, ""))
+	case []*Value:
+		var result []byte
+		for _, value := range v {
+			if bytes := valueToBytes(value); bytes != nil {
+				result = append(result, bytes...)
+			}
+		}
+		return result
 	}
-	panic("unexpected type" + reflect.TypeOf(data).String())
+	panic("unexpected type " + reflect.TypeOf(data).String())
+}
+
+func valueToBytes(value *Value) []byte {
+	switch v := value.Value().(type) {
+	case string:
+		return []byte(v)
+	case int:
+		return []byte(strconv.Itoa(v))
+	case float64:
+		return []byte(strconv.FormatFloat(v, 'f', -1, 64))
+	case []*Value:
+		var result []byte
+		for _, innerValue := range v {
+			if bytes := valueToBytes(innerValue); bytes != nil {
+				result = append(result, bytes...)
+			}
+		}
+		return result
+	default:
+		return nil // Handle other types or nil values
+	}
 }
 
 func isString(data []byte) bool {
@@ -194,5 +240,16 @@ func isFloat(data []byte) bool {
 		return true
 	} else {
 		return false
+	}
+}
+
+func toInt(val interface{}) int {
+	switch v := val.(type) {
+	case int:
+		return v
+	case float64:
+		return int(v)
+	default:
+		panic("Unsupported type")
 	}
 }

@@ -65,8 +65,7 @@ func NewIfNode(cases []*IfCaseNode, elseCase *ElseCaseNode) *IfNode {
 	if elseCase != nil {
 		posEnd = elseCase.PosEnd()
 	} else {
-		lastCondition := cases[len(cases)-1].Condition
-		posEnd = lastCondition.PosEnd()
+		posEnd = cases[len(cases)-1].Condition.PosEnd()
 	}
 
 	// in case we handle an else, cases will be nil
@@ -152,6 +151,63 @@ func NewArrayNode(ElementNodes []Node, PosStart *Position, PosEnd *Position) *Ar
 	return &ArrayNode{ElementNodes, PosStart, PosEnd}
 }
 
+func NewReturnNode(NodeToReturn Node, PosStart *Position, PosEnd *Position) *ReturnNode {
+	return &ReturnNode{NodeToReturn, PosStart, PosEnd}
+}
+
+func NewContinueNode(PosStart *Position, PosEnd *Position) *ContinueNode {
+	return &ContinueNode{PosStart, PosEnd}
+}
+
+func NewBreakNode(PosStart *Position, PosEnd *Position) *BreakNode {
+	return &BreakNode{PosStart, PosEnd}
+}
+
+// String returns the string representation of the array node.
+func (r *ReturnNode) String() string {
+	return fmt.Sprintf("(%v)", r.NodeToReturn)
+}
+
+// PosStart returns the start position of the array node.
+func (r *ReturnNode) PosStart() *Position {
+	return r.PositionStart
+}
+
+// PosEnd returns the end position of the array node.
+func (r *ReturnNode) PosEnd() *Position {
+	return r.PositionEnd
+}
+
+// String returns the string representation of the array node.
+func (c *ContinueNode) String() string {
+	return "<continue>"
+}
+
+// PosStart returns the start position of the array node.
+func (c *ContinueNode) PosStart() *Position {
+	return c.PositionStart
+}
+
+// PosEnd returns the end position of the array node.
+func (c *ContinueNode) PosEnd() *Position {
+	return c.PositionEnd
+}
+
+// String returns the string representation of the array node.
+func (b *BreakNode) String() string {
+	return "<break>"
+}
+
+// PosStart returns the start position of the array node.
+func (b *BreakNode) PosStart() *Position {
+	return b.PositionStart
+}
+
+// PosEnd returns the end position of the array node.
+func (b *BreakNode) PosEnd() *Position {
+	return b.PositionEnd
+}
+
 // String returns the string representation of the array node.
 func (a *ArrayNode) String() string {
 	return fmt.Sprintf("(%v)", a.ElementNodes)
@@ -229,7 +285,7 @@ func (f *ForNode) PosEnd() *Position {
 
 // String returns the string representation of the UnaryOpNode.
 func (i *IfNode) String() string {
-	return ""
+	return fmt.Sprintf("(cases: %v, elsecase: %v)", i.Cases, i.ElseCase)
 }
 
 // PosStart returns the start position of the number node.

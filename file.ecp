@@ -1,1 +1,33 @@
-IF 5 == 5 THEN; println("math"); println("works") ELSE println("broken")
+FUNC oopify(prefix) => prefix + "oop"
+
+FUNC join(elements, separator)
+	VAR result = ""
+	VAR LEN = len(elements)
+
+	FOR i = 0 TO LEN THEN
+		VAR result = result + elements/i
+		IF i != LEN - 1 THEN VAR result = result + separator
+	END
+
+	RETURN result
+END
+
+FUNC map(elements, func)
+	VAR new_elements = []
+
+	FOR i = 0 TO len(elements) THEN
+		append(new_elements, func(elements/i))
+	END
+
+	RETURN new_elements
+END
+
+println("Greetings universe!")
+
+FOR i = 0 TO 5 THEN
+print("IN FOR LOOP")
+	print(join(map(["l", "sp"], oopify), ", "))
+END
+
+print(join(map(["l", "sp"], oopify), ", "))
+print(map)

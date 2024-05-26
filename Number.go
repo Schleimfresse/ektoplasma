@@ -151,7 +151,9 @@ func (n *Number) PowedBy(other *Number) (*Value, *RuntimeError) {
 
 func (n *Number) GetComparisonEq(other *Number) (*Value, *RuntimeError) {
 	if other != nil {
-		value := NewBoolean(ConvertBoolToInt(n.ValueField == other.ValueField))
+		nVal := toInt(n.ValueField)
+		otherVal := toInt(other.ValueField)
+		value := NewBoolean(ConvertBoolToInt(nVal == otherVal))
 		value.SetContext(n.Context)
 		return value, nil
 	}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path"
@@ -44,7 +45,7 @@ const (
 	One           Binary     = 1
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END", "IMPORT"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END", "RETURN", "CONTINUE", "BREAK", "IMPORT"}
 var GlobalSymbolTable = NewSymbolTable(nil)
 var lineTEMP int
 
@@ -57,13 +58,13 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 		return nil, nil
 	}
 
-	for _, token := range tokens {
+	/*for _, token := range tokens {
 		if token.PosStart != nil && token.PosEnd != nil {
 			fmt.Println(token.Type, token.Value, "START:", *token.PosStart, "END:", *token.PosEnd)
 		} else {
 			fmt.Println(token.Type, "START:", token.PosStart, "END:", token.PosEnd)
 		}
-	}
+	}*/
 	parser := NewParser(tokens)
 	ast := parser.Parse()
 
@@ -78,6 +79,7 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 	context := NewContext("<program>", nil, nil)
 	context.SymbolTable = GlobalSymbolTable
 	interpreter := NewInterpreter()
+	log.Println("ast:", ast.Node)
 	result := interpreter.visit(ast.Node, context)
 	return result.Value, result.Error
 }
@@ -105,8 +107,15 @@ func main() {
 			return
 		}
 		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		ScanLine(fileName, scanner)
+		content, err := io.ReadAll(file)
+		log.Println(content)
+		cleanedSourceCode := strings.ReplaceAll(string(content), "\v", "")
+		if err != nil {
+			fmt.Println("Error: cannot read specified file.")
+			return
+		}
+
+		Scan(fileName, cleanedSourceCode)
 	} else {
 		for {
 			buf := make([]byte, 1024)
@@ -117,56 +126,53 @@ func main() {
 
 			newReader := bufio.NewReader(bytes.NewReader(buf[:n]))
 			scanner := bufio.NewScanner(newReader)
-			ScanLine("<stdin>", scanner)
+			line := scanner.Text()
+			line = strings.ReplaceAll(line, "", "")
+
+			if line == "" {
+				continue
+			}
+			Scan("<stdin>", line)
 		}
 	}
 }
 
-func ScanLine(fileName string, scanner *bufio.Scanner) {
-	for scanner.Scan() {
-		line := scanner.Text()
+func Scan(fileName string, line string) {
 
-		line = strings.ReplaceAll(line, "", "")
-		if line == "" {
-			continue
-		}
+	// Process the line
+	fmt.Println("Processing line:", line)
 
-		// Process the line
-		fmt.Println("Processing line:", line)
+	// Run your function for each line
+	result, err := run(fileName, line)
 
-		// Run your function for each line
-		result, err := run(fileName, line)
-
-		// log.Println("RESULT:", result)
-		if err != nil {
-			fmt.Println(err.AsString())
-			break
-
-		} else if result != nil {
-			if result.Number != nil {
-				fmt.Println(result.Number.ValueField)
-			} else if result.Function != nil {
-				fmt.Println(result.Function.String())
-			} else if result.String != nil {
-				fmt.Println(result.String.ValueField)
-			} else if result.Array != nil {
-				if len(result.Array.Elements) == 1 && result.Array.Elements[0] != nil {
-					fmt.Println(result.Array.Elements[0].Value())
+	log.Println("RESULT:", result)
+	if err != nil {
+		fmt.Println(err.AsString())
+		return
+	} else if result != nil {
+		if result.Number != nil {
+			fmt.Println(result.Number.ValueField)
+		} else if result.Function != nil {
+			fmt.Println(result.Function.String())
+		} else if result.String != nil {
+			fmt.Println(result.String.ValueField)
+		} else if result.Array != nil {
+			if len(result.Array.Elements) == 1 && result.Array.Elements[0] != nil {
+				if result.Array.Elements[0].Array != nil {
+					fmt.Println(result.Array.Elements[0].Array.String())
 				} else {
-					fmt.Println(result.Array.String())
+					fmt.Println(result.Array.Elements[0].Value())
 				}
-			} else if result.Boolean != nil {
-				fmt.Println(result.Boolean.String())
 			} else {
-				fmt.Println(result.Null.String())
+				fmt.Println(result.Array.String())
 			}
+		} else if result.Boolean != nil {
+			fmt.Println(result.Boolean.String())
+		} else {
+			fmt.Println(result.Null.String())
 		}
+
+		// TODO may add Value String() method -> no check inside one element in wrapper for array on it
 		lineTEMP++
 	}
-	if err := scanner.Err(); err != nil {
-		fmt.Println("Error reading file:", err)
-		return
-	}
 }
-
-// TODO return null wenn if nichts ausgibt

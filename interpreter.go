@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 )
 
@@ -35,6 +36,12 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitStringNode(*n, context)
 	case *ArrayNode:
 		return i.visitArrayNode(*n, context)
+	case *ReturnNode:
+		return i.visitReturnNode(*n, context)
+	case *ContinueNode:
+		return i.visitContinueNode()
+	case *BreakNode:
+		return i.visitBreakNode()
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -71,8 +78,11 @@ func (i *Interpreter) visitArrayNode(node ArrayNode, context *Context) *RTResult
 		if result.Error != nil {
 			return result
 		}
-		elements = append(elements, res.Register(result))
-		if res.Error != nil {
+		value := res.Register(result)
+		if !value.IsEmpty() {
+			elements = append(elements, value)
+		}
+		if res.ShouldReturn() {
 			return res
 		}
 	}
@@ -87,13 +97,13 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 
 	leftRTValue := i.visit(node.LeftNode, context)
 	res.Register(leftRTValue)
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
 	rightRTValue := i.visit(node.RightNode, context)
 	res.Register(rightRTValue)
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
@@ -192,7 +202,7 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTResult {
 	res := NewRTResult()
 	numValue := res.Register(i.visit(node.Node, context))
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
@@ -251,13 +261,13 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 	varName := node.VarNameTok.Value
 
 	value := res.Register(i.visit(node.ValueNode, context))
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
 	context.SymbolTable.Set(varName.(string), value)
 
-	return res.Success(value)
+	return res.Success(NewEmptyValue())
 }
 
 func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
@@ -266,14 +276,14 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 	for _, ifcase := range node.Cases {
 
 		value := res.Register(i.visit(ifcase.Condition, context))
-		if res.Error != nil {
+		if res.ShouldReturn() {
 			return res
 		}
 
 		conditionValue := value.Boolean
 		if conditionValue.IsTrue() {
 			exprValue := res.Register(i.visit(ifcase.Expr, context))
-			if res.Error != nil {
+			if res.ShouldReturn() {
 				return res
 			}
 			if ifcase.Flag {
@@ -285,7 +295,7 @@ func (i *Interpreter) visitIfNode(node IfNode, context *Context) *RTResult {
 
 	if node.ElseCase != nil {
 		elseValue := res.Register(i.visit(node.ElseCase.Expr, context))
-		if res.Error != nil {
+		if res.ShouldReturn() {
 			return res
 		}
 		if node.ElseCase.Flag {
@@ -302,19 +312,19 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 	var elements []*Value
 
 	start := res.Register(i.visit(node.StartValueNode, context))
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
 	end := res.Register(i.visit(node.EndValueNode, context))
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
 	var stepValue *Number
 	if node.StepValueNode != nil {
 		stepValue = res.Register(i.visit(node.StepValueNode, context)).Number
-		if res.Error != nil {
+		if res.ShouldReturn() {
 			return res
 		}
 	} else {
@@ -349,14 +359,24 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 
 		iVal += stepValue.ValueField.(int)
 
-		elements = append(elements, res.Register(i.visit(node.BodyNode, context)))
-		if res.Error != nil {
+		value := res.Register(i.visit(node.BodyNode, context))
+
+		if res.ShouldReturn() && res.LoopShouldContinue == false && res.LoopShouldBreak == false {
 			return res
 		}
+
+		if res.LoopShouldContinue {
+			continue
+		}
+		if res.LoopShouldBreak {
+			break
+		}
+
+		elements = append(elements, value)
 	}
 
 	if node.Flag {
-		return res.Success(NewNull())
+		return res.Success(NewEmptyValue())
 	}
 	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
@@ -367,7 +387,7 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 
 	for {
 		condition := res.Register(i.visit(node.ConditionNode, context))
-		if res.Error != nil {
+		if res.ShouldReturn() {
 			return res
 		}
 
@@ -375,14 +395,26 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 			break
 		}
 
-		elements = append(elements, res.Register(i.visit(node.BodyNode, context)))
-		if res.Error != nil {
+		value := res.Register(i.visit(node.BodyNode, context))
+		for _, el := range node.BodyNode.(*ArrayNode).ElementNodes {
+			log.Println("IF NODE: ", el, reflect.TypeOf(el))
+		}
+		if res.ShouldReturn() && res.LoopShouldContinue == false && res.LoopShouldBreak == false {
 			return res
 		}
+
+		if res.LoopShouldContinue {
+			continue
+		}
+		if res.LoopShouldBreak {
+			break
+		}
+
+		elements = append(elements, value)
 	}
 
 	if node.Flag {
-		return res.Success(NewNull())
+		return res.Success(NewEmptyValue())
 	}
 	return res.Success(NewArray(elements).SetContext(context).SetPos(node.PosStart(), node.PosEnd()))
 }
@@ -410,21 +442,21 @@ func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTRe
 		context.SymbolTable.Set(*funcName, value)
 	}
 
-	return res.Success(value)
+	return res.Success(NewEmptyValue())
 }
 
 func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 	res := NewRTResult()
 	args := make([]*Value, len(node.ArgNodes))
 	Call := res.Register(i.visit(node.NodeToCall, context))
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 	valueToCall := Call.SetPos(node.PosStart(), node.PosEnd()).SetContext(context)
 
 	for idx, argNode := range node.ArgNodes {
 		args[idx] = res.Register(i.visit(argNode, context))
-		if res.Error != nil {
+		if res.ShouldReturn() {
 			return res
 		}
 	}
@@ -435,12 +467,36 @@ func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 	} else if valueToCall.BuildInFunction != nil {
 		returnValue = res.Register(valueToCall.BuildInFunction.Execute(args))
 	}
-	if res.Error != nil {
+	if res.ShouldReturn() {
 		return res
 	}
 
 	returnValue = returnValue.Copy().SetPos(node.PosStart(), node.PosEnd()).SetContext(context)
 	return res.Success(returnValue)
+}
+
+func (i *Interpreter) visitReturnNode(node ReturnNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	var value *Value
+	if node.NodeToReturn != nil {
+		value = res.Register(i.visit(node.NodeToReturn, context))
+		if res.ShouldReturn() {
+			return res
+		}
+	} else {
+		value = NewNull()
+	}
+
+	return res.SuccessReturn(value)
+}
+
+func (i *Interpreter) visitContinueNode() *RTResult {
+	return NewRTResult().SuccessContinue()
+}
+
+func (i *Interpreter) visitBreakNode() *RTResult {
+	return NewRTResult().SuccessBreak()
 }
 
 // NewRTResult creates a new RTResult instance.
@@ -450,22 +506,55 @@ func NewRTResult() *RTResult {
 
 // Register registers the result of a runtime operation.
 func (r *RTResult) Register(res *RTResult) *Value {
-	if res.Error != nil {
-		r.Error = res.Error
-	}
+	r.Error = res.Error
+	r.FuncReturnValue = res.FuncReturnValue
+	r.LoopShouldContinue = res.LoopShouldContinue
+	r.LoopShouldBreak = res.LoopShouldBreak
 	return res.Value
+}
+
+func (r *RTResult) Reset() {
+	r.Value = nil
+	r.Error = nil
+	r.FuncReturnValue = nil
+	r.LoopShouldContinue = false
+	r.LoopShouldBreak = false
 }
 
 // Success indicates a successful runtime operation.
 func (r *RTResult) Success(value *Value) *RTResult {
+	r.Reset()
 	r.Value = value
+	return r
+}
+
+func (r *RTResult) SuccessReturn(value *Value) *RTResult {
+	r.Reset()
+	r.FuncReturnValue = value
+	return r
+}
+
+func (r *RTResult) SuccessContinue() *RTResult {
+	r.Reset()
+	r.LoopShouldContinue = true
+	return r
+}
+
+func (r *RTResult) SuccessBreak() *RTResult {
+	r.Reset()
+	r.LoopShouldBreak = true
 	return r
 }
 
 // Failure indicates a failed runtime operation.
 func (r *RTResult) Failure(error *RuntimeError) *RTResult {
+	r.Reset()
 	r.Error = error
 	return r
+}
+
+func (r *RTResult) ShouldReturn() bool {
+	return r.Error != nil || r.FuncReturnValue != nil || r.LoopShouldContinue || r.LoopShouldBreak
 }
 
 // NewContext creates a new context with the given display name, parent, and parent entry position.
@@ -523,4 +612,8 @@ func IsInt(value interface{}) bool {
 	default:
 		return false
 	}
+}
+
+func NewEmptyValue() *Value {
+	return &Value{}
 }
