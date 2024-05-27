@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -252,4 +253,13 @@ func toInt(val interface{}) int {
 	default:
 		panic("Unsupported type")
 	}
+}
+
+func LoadModule(moduleName string) (string, error) {
+	filename := moduleName + ".ecp"
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
 }

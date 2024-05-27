@@ -41,13 +41,14 @@ const (
 	TT_COMMA      TokenTypes = "COMMA"
 	TT_NEWLINE    TokenTypes = "NEWLINE"
 	TT_ARROW      TokenTypes = "ARROW"
+	TT_LCBRACK    TokenTypes = "LCBRACK"
+	TT_RCBRACK    TokenTypes = "RCBRACK"
 	Zero          Binary     = 0
 	One           Binary     = 1
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END", "RETURN", "CONTINUE", "BREAK", "IMPORT"}
+var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END", "RETURN", "CONTINUE", "BREAK", "IMPORT", "FROM"}
 var GlobalSymbolTable = NewSymbolTable(nil)
-var lineTEMP int
 
 func run(fileName, text string) (*Value, *RuntimeError) {
 	lexer := NewLexer(fileName, text)
@@ -58,16 +59,15 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 		return nil, nil
 	}
 
-	/*for _, token := range tokens {
+	for _, token := range tokens {
 		if token.PosStart != nil && token.PosEnd != nil {
-			fmt.Println(token.Type, token.Value, "START:", *token.PosStart, "END:", *token.PosEnd)
+			fmt.Println(token.Type, token.Value)
 		} else {
-			fmt.Println(token.Type, "START:", token.PosStart, "END:", token.PosEnd)
+			fmt.Println(token.Type)
 		}
-	}*/
+	}
 	parser := NewParser(tokens)
 	ast := parser.Parse()
-
 	if ast.Error != nil {
 		fmt.Println(ast.Error.AsString())
 		return nil, nil
@@ -97,6 +97,7 @@ func main() {
 	GlobalSymbolTable.Set("isArray", NewBuildInFunction("isArray"))
 	GlobalSymbolTable.Set("append", NewBuildInFunction("append"))
 	GlobalSymbolTable.Set("len", NewBuildInFunction("len"))
+	GlobalSymbolTable.Set("pop", NewBuildInFunction("pop"))
 
 	if len(os.Args) >= 2 {
 		filePath, _ := filepath.Abs(os.Args[1])
@@ -173,6 +174,5 @@ func Scan(fileName string, line string) {
 		}
 
 		// TODO may add Value String() method -> no check inside one element in wrapper for array on it
-		lineTEMP++
 	}
 }

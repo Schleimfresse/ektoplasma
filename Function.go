@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 	"syscall"
@@ -156,6 +157,7 @@ func NewBuildInFunction(name string) *Value {
 	BuildInFn.Methods["isArray"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteIsArray}
 	BuildInFn.Methods["append"] = Method{ArgsNames: []string{"array", "value"}, Fn: BuildInFn.ExecuteAppend}
 	BuildInFn.Methods["len"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteLen}
+	BuildInFn.Methods["pop"] = Method{ArgsNames: []string{"array", "index"}, Fn: BuildInFn.ExecutePop}
 
 	return &Value{BuildInFunction: BuildInFn}
 
@@ -198,6 +200,7 @@ func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
 	value, exists := execCtx.SymbolTable.Get("value")
 
 	if exists {
+		log.Print(interfaceToBytes(value.Value()))
 		_, err := syscall.Write(syscall.Stdout, interfaceToBytes(value.Value()))
 		if err != nil {
 			return nil
@@ -209,14 +212,18 @@ func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
 
 func (b *BuildInFunction) executePrintLn(execCtx *Context) *RTResult {
 	value, exists := execCtx.SymbolTable.Get("value")
-	fmt.Println()
+
 	if exists {
-		data := interfaceToBytes(value.Value())
-		data = append(data, 10)
-		_, err := syscall.Write(syscall.Stdout, data)
+		_, err := syscall.Write(syscall.Stdout, interfaceToBytes(value.Value()))
 		if err != nil {
 			return nil
 		}
+
+		_, err = syscall.Write(syscall.Stdout, []byte{10})
+		if err != nil {
+			return nil
+		}
+
 	}
 
 	return NewRTResult().Success(NewEmptyValue())
@@ -321,3 +328,48 @@ func (b *BuildInFunction) ExecuteLen(execCtx *Context) *RTResult {
 
 	return NewRTResult().Success(NewNull())
 }
+
+func (b *BuildInFunction) ExecutePop(execCtx *Context) *RTResult {
+	index, _ := execCtx.SymbolTable.Get("index")
+	array, _ := execCtx.SymbolTable.Get("array")
+
+	if array.Array != nil {
+		if index.Number != nil {
+			arr := array.Array.Elements
+			idx := index.Number.ValueField.(int)
+			if index.Number.ValueField.(int) < 0 || index.Number.ValueField.(int) >= len(arr) {
+				return NewRTResult().Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), "Index out of bounds", execCtx))
+			}
+
+			element := arr[idx]
+
+			array.Array.Elements = append(arr[:idx], arr[idx+1:]...)
+
+			return NewRTResult().Success(element)
+		} else {
+			return NewRTResult().Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("Index must be an Number, got: %v", index.Type()), execCtx))
+		}
+	} else {
+		return NewRTResult().Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("First argument must be an Array, got: %v", index.Type()), execCtx))
+	}
+}
+
+/*
+
+
+
+
+2024/05/26 17:45:38 [71 114 101 101 116 105 110 103 115 32 117 110 105 118 101 114 115 101 33]
+Greetings universe!2024/05/26 17:45:38 [108 111 111 112 44 32 115 112 111 111 112]
+loop, spoop2024/05/26 17:45:38 [108 111 111 112 44 32 115 112 111 111 112]
+loop, spoop2024/05/26 17:45:38 [108 111 111 112 44 32 115 112 111 111 112]
+loop, spoop2024/05/26 17:45:38 [108 111 111 112 44 32 115 112 111 111 112]
+loop, spoop2024/05/26 17:45:38 [108 111 111 112 44 32 115 112 111 111 112]
+loop, spoop2024/05/26 17:45:38 [108 111 111 112 44 32 115 112 111 111 112]
+loop, spoop2024/05/26 17:45:38 [60 102 117 110 99 116 105 111 110 32 109 97 112 62]
+
+
+
+
+
+*/

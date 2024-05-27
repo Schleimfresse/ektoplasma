@@ -42,6 +42,8 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitContinueNode()
 	case *BreakNode:
 		return i.visitBreakNode()
+	case *ImportNode:
+		return i.visitImportNode(*n, context)
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -69,12 +71,65 @@ func (i *Interpreter) visitStringNode(node StringNode, context *Context) *RTResu
 	return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("%s is not of type string", reflect.TypeOf(node.Value)), context))
 }
 
+func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	moduleName := node.ModuleName
+	functionName := node.FunctionName
+
+	moduleContent, err := LoadModule(moduleName.Value.(string))
+	if err != nil {
+		return res.Failure(NewRTError(
+			node.PositionStart, node.PositionEnd,
+			fmt.Sprintf("Failed to load module, no module named '%s', ", moduleName.Value),
+			context,
+		))
+	}
+
+	moduleContext := NewContext(fmt.Sprintf("<%v>", moduleName.Value.(string)), context, node.PositionStart)
+	moduleContext.SymbolTable = NewSymbolTable(nil)
+
+	tokens, Err := NewLexer(moduleName.Value.(string), moduleContent).MakeTokens()
+	if Err != nil {
+		return res.Failure(NewRTError(node.PositionStart, node.PositionEnd, fmt.Sprintf("Error tokenizing imported module %v", moduleName), context))
+	}
+
+	parser := NewParser(tokens)
+	moduleAst := parser.Parse()
+	if moduleAst.Error != nil {
+		return res.Failure(NewRTError(moduleAst.Error.PosStart, moduleAst.Error.PosEnd, moduleAst.Error.Details, moduleContext))
+	}
+
+	interpreter := NewInterpreter()
+	res.Register(interpreter.visit(moduleAst.Node, moduleContext))
+	if res.Error != nil {
+		return res
+	}
+
+	// Retrieve the function from the module's symbol table
+	functionValue, exists := moduleContext.SymbolTable.Get(functionName.Value.(string))
+	if !exists {
+		return res.Failure(NewRTError(
+			node.PositionStart, node.PositionEnd,
+			fmt.Sprintf("Function '%s' not declared in module '%s'", functionName.Value.(string), moduleName.Value.(string)),
+			context,
+		))
+	}
+
+	// Register the function in the current context
+	context.SymbolTable.Set(functionName.Value.(string), functionValue)
+
+	return res.Success(NewEmptyValue())
+}
+
 func (i *Interpreter) visitArrayNode(node ArrayNode, context *Context) *RTResult {
 	res := NewRTResult()
 	var elements []*Value
 
 	for _, elementNode := range node.ElementNodes {
+		log.Println("EL node:", reflect.TypeOf(elementNode))
 		result := i.visit(elementNode, context)
+		log.Println("EL result:", result)
 		if result.Error != nil {
 			return result
 		}
@@ -396,9 +451,7 @@ func (i *Interpreter) visitWhileNode(node WhileNode, context *Context) *RTResult
 		}
 
 		value := res.Register(i.visit(node.BodyNode, context))
-		for _, el := range node.BodyNode.(*ArrayNode).ElementNodes {
-			log.Println("IF NODE: ", el, reflect.TypeOf(el))
-		}
+
 		if res.ShouldReturn() && res.LoopShouldContinue == false && res.LoopShouldBreak == false {
 			return res
 		}

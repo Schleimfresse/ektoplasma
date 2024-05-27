@@ -667,6 +667,12 @@ func (p *Parser) Atom() *ParseResult {
 			return res
 		}
 		return res.Success(FuncDef)
+	} else if tok.Matches(TT_KEYWORD, "IMPORT") {
+		ImportExpr := res.Register(p.ImportExpr())
+		if res.Error != nil {
+			return res
+		}
+		return res.Success(ImportExpr)
 	}
 
 	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected int, float, identifier, '+', '-' or '(', 'IF', 'FOR', 'WHILE', 'FUNC'").Error)
@@ -850,6 +856,39 @@ func (p *Parser) Expr() *ParseResult {
 	}
 
 	return res.Success(node)
+}
+
+func (p *Parser) ImportExpr() *ParseResult {
+	res := NewParseResult()
+
+	posStart := p.Current.PosStart
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if p.Current.Type != TT_IDENTIFIER {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected identifier").Error)
+	}
+
+	functionName := p.Current
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	if !p.Current.Matches(TT_KEYWORD, "FROM") {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'FROM'").Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	modulName := p.Current
+	posEnd := p.Current.PosEnd.Copy()
+
+	res.RegisterAdvancement()
+	p.Advance()
+
+	return res.Success(NewImportNode(functionName, modulName, posStart, posEnd))
 }
 
 // / BinOp parses a binary operation.

@@ -226,6 +226,12 @@ type ContinueNode struct {
 	PositionEnd   *Position
 }
 
+type ImportNode struct {
+	FunctionName               *Token
+	ModuleName                 *Token
+	PositionStart, PositionEnd *Position
+}
+
 // Function represents a function value.
 type Function struct {
 	BodyNode *Node

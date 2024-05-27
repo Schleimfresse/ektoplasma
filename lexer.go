@@ -15,10 +15,10 @@ func (p *Position) Advance(currentChar byte) *Position {
 	p.Idx++
 	p.Col++
 
-	/*if currentChar == '\n' {
+	if currentChar == '\n' {
 		p.Ln++
 		p.Col = 0
-	}*/
+	}
 
 	return p
 }
@@ -43,7 +43,7 @@ func NewLexer(fn, text string) *Lexer {
 	lexer := &Lexer{
 		Fn:   fn,
 		Text: text,
-		Pos:  NewPosition(-1, lineTEMP, -1, fn, text),
+		Pos:  NewPosition(-1, 0, -1, fn, text),
 	}
 	lexer.Advance()
 	return lexer
@@ -64,7 +64,7 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 	var tokens []*Token
 
 	for l.CurrentChar != 0 {
-		if l.CurrentChar == ' ' || l.CurrentChar == '\t' || l.CurrentChar == '\r' { // macos only uses \r may adapt to register only \r as newline
+		if l.CurrentChar == ' ' || l.CurrentChar == '\t' || l.CurrentChar == '\r' { // macOS only uses \r may adapt to register only \r as newline
 			l.Advance()
 		} else if l.CurrentChar == '\n' || l.CurrentChar == ';' /* || l.CurrentChar == '\v'*/ {
 			tokens = append(tokens, NewToken(TT_NEWLINE, nil, l.Pos.Copy(), l.Pos.Copy()))
@@ -83,6 +83,12 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			l.Advance()
 		} else if l.CurrentChar == '*' {
 			tokens = append(tokens, NewToken(TT_MUL, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
+		} else if l.CurrentChar == '{' {
+			tokens = append(tokens, NewToken(TT_LCBRACK, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
+		} else if l.CurrentChar == '}' {
+			tokens = append(tokens, NewToken(TT_RCBRACK, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == '/' {
 			tokens = append(tokens, l.DivisionOrComment())

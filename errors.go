@@ -122,6 +122,8 @@ func (e RuntimeError) generateTraceback() string {
 	pos := e.PosStart
 	ctx := e.Context
 
+	log.Println("POS FN", fmt.Sprintf("%s%s: %s%s", bold, e.ErrorName, e.Details, reset))
+
 	ErrorFilePath, _ := filepath.Abs(pos.Fn)
 	for ctx != nil {
 		result = fmt.Sprintf("File %s, line %d, in %s\n%s", pos.Fn, pos.Ln+1, ctx.DisplayName, result)

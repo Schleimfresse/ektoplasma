@@ -301,5 +301,3 @@ func (n *Number) Notted() (*Value, *RuntimeError) {
 	value.SetContext(n.Context)
 	return value, nil
 }
-
-// TODO Value interface or type wrapper, in it all Value types (Number, Function, etc.) only specific function, when Value needed select appropriate type and utilize specific methods

@@ -163,6 +163,25 @@ func NewBreakNode(PosStart *Position, PosEnd *Position) *BreakNode {
 	return &BreakNode{PosStart, PosEnd}
 }
 
+func NewImportNode(functionName *Token, modulName *Token, posStart *Position, posEnd *Position) *ImportNode {
+	return &ImportNode{functionName, modulName, posStart, posEnd}
+}
+
+// String returns the string representation of the array node.
+func (i *ImportNode) String() string {
+	return fmt.Sprintf("(%v, %v)", i.FunctionName, i.ModuleName)
+}
+
+// PosStart returns the start position of the array node.
+func (i *ImportNode) PosStart() *Position {
+	return i.PositionStart
+}
+
+// PosEnd returns the end position of the array node.
+func (i *ImportNode) PosEnd() *Position {
+	return i.PositionEnd
+}
+
 // String returns the string representation of the array node.
 func (r *ReturnNode) String() string {
 	return fmt.Sprintf("(%v)", r.NodeToReturn)
