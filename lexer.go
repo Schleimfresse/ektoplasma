@@ -251,6 +251,7 @@ func (l *Lexer) MakeLessThan() *Token {
 		l.Advance()
 		TokenType = TT_LTE
 	}
+
 	return NewToken(TokenType, nil, PosStart, l.Pos)
 }
 
@@ -271,11 +272,14 @@ func (l *Lexer) DivisionOrComment() *Token {
 	l.Advance()
 
 	if l.CurrentChar == '/' {
-		charLeft := len(l.Text) - l.Pos.Idx
-		for _ = range charLeft {
+		for l.CurrentChar != '\r' {
 			l.Advance()
 		}
+		// TODO comment functionality
+		return nil
 	}
+
+	l.Advance()
 
 	return &Token{tokenType, nil, posStart, l.Pos}
 }

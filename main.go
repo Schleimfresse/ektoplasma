@@ -47,7 +47,7 @@ const (
 	One           Binary     = 1
 )
 
-var KEYWORDS = []string{"VAR", "AND", "OR", "NOT", "IF", "THEN", "ELSE", "ELIF", "FOR", "TO", "STEP", "WHILE", "FUNC", "END", "RETURN", "CONTINUE", "BREAK", "IMPORT", "FROM"}
+var KEYWORDS = []string{"var", "and", "or", "not", "if", "then", "else", "elif", "for", "to", "step", "while", "func", "end", "return", "continue", "break", "import", "from", "const"}
 var GlobalSymbolTable = NewSymbolTable(nil)
 
 func run(fileName, text string) (*Value, *RuntimeError) {
@@ -85,19 +85,19 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 }
 
 func main() {
-	GlobalSymbolTable.Set("null", NewNull())
-	GlobalSymbolTable.Set("false", NewBoolean(0))
-	GlobalSymbolTable.Set("true", NewBoolean(1))
-	GlobalSymbolTable.Set("print", NewBuildInFunction("Print"))
-	GlobalSymbolTable.Set("println", NewBuildInFunction("PrintLn"))
-	GlobalSymbolTable.Set("input", NewBuildInFunction("Input"))
-	GlobalSymbolTable.Set("isString", NewBuildInFunction("isString"))
-	GlobalSymbolTable.Set("isNumber", NewBuildInFunction("isNumber"))
-	GlobalSymbolTable.Set("isFunction", NewBuildInFunction("isFunction"))
-	GlobalSymbolTable.Set("isArray", NewBuildInFunction("isArray"))
-	GlobalSymbolTable.Set("append", NewBuildInFunction("append"))
-	GlobalSymbolTable.Set("len", NewBuildInFunction("len"))
-	GlobalSymbolTable.Set("pop", NewBuildInFunction("pop"))
+	GlobalSymbolTable.Set("null", NewNull(), false)
+	GlobalSymbolTable.Set("false", NewBoolean(0), false)
+	GlobalSymbolTable.Set("true", NewBoolean(1), false)
+	GlobalSymbolTable.Set("print", NewBuildInFunction("print"), false)
+	GlobalSymbolTable.Set("println", NewBuildInFunction("println"), false)
+	GlobalSymbolTable.Set("input", NewBuildInFunction("Input"), false)
+	GlobalSymbolTable.Set("isString", NewBuildInFunction("isString"), false)
+	GlobalSymbolTable.Set("isNumber", NewBuildInFunction("isNumber"), false)
+	GlobalSymbolTable.Set("isFunction", NewBuildInFunction("isFunction"), false)
+	GlobalSymbolTable.Set("isArray", NewBuildInFunction("isArray"), false)
+	GlobalSymbolTable.Set("append", NewBuildInFunction("append"), false)
+	GlobalSymbolTable.Set("len", NewBuildInFunction("len"), false)
+	GlobalSymbolTable.Set("pop", NewBuildInFunction("pop"), false)
 
 	if len(os.Args) >= 2 {
 		filePath, _ := filepath.Abs(os.Args[1])
@@ -109,7 +109,7 @@ func main() {
 		}
 		defer file.Close()
 		content, err := io.ReadAll(file)
-		log.Println(content)
+
 		cleanedSourceCode := strings.ReplaceAll(string(content), "\v", "")
 		if err != nil {
 			fmt.Println("Error: cannot read specified file.")
@@ -140,13 +140,9 @@ func main() {
 
 func Scan(fileName string, line string) {
 
-	// Process the line
-	fmt.Println("Processing line:", line)
-
 	// Run your function for each line
 	result, err := run(fileName, line)
 
-	log.Println("RESULT:", result)
 	if err != nil {
 		fmt.Println(err.AsString())
 		return

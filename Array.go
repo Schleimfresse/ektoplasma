@@ -50,12 +50,12 @@ func (a *Array) MultipliedBy(other *Value) (*Value, *RuntimeError) {
 }
 
 // Retrieve element by index from Array
-func (a *Array) DividedBy(other *Value) (*Value, *RuntimeError) {
-
-	if other.Number.ValueField.(int) < 0 || other.Number.ValueField.(int) >= len(a.Elements) {
-		return nil, NewRTError(other.Number.PosStart(), other.Number.PosEnd(), fmt.Sprintf("Element at index %v could not be retrieved from array, index is out of bounds", other.Value()), a.Context)
+func (a *Array) GetIndex(index *Number) (*Value, *RuntimeError) {
+	if index.ValueField.(int) < 0 || index.ValueField.(int) >= len(a.Elements) {
+		return nil, NewRTError(index.PosStart(), index.PosEnd(), fmt.Sprintf("Element at index %v could not be retrieved from array, index is out of bounds", index.ValueField.(int)), a.Context)
 	}
-	return a.Elements[other.Number.ValueField.(int)], nil
+
+	return a.Elements[index.ValueField.(int)], nil
 }
 
 // Error for illegal operation

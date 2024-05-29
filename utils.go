@@ -137,6 +137,26 @@ func (v *Value) GetPosEnd() *Position {
 	return nil
 }
 
+// SetContext gets the context of the value
+func (v *Value) GetContext() *Context {
+	if v.Number != nil {
+		return v.Number.Context
+	} else if v.String != nil {
+		return v.String.Context
+	} else if v.Function != nil {
+		return v.Function.Base.Context
+	} else if v.BuildInFunction != nil {
+		return v.BuildInFunction.Base.Context
+	} else if v.Array != nil {
+		return v.Array.Context
+	} else if v.Null != nil {
+		return v.Null.Context
+	} else if v.Boolean != nil {
+		return v.Boolean.Context
+	}
+	return nil
+}
+
 func (v *Value) Type() string {
 	if v.Number != nil {
 		return "Number"

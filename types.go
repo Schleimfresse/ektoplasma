@@ -39,10 +39,18 @@ type VarAccessNode struct {
 	PositionEnd   *Position
 }
 
+type IndexNode struct {
+	VarAccessNode *VarAccessNode
+	IndexNode     *NumberNode
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
 // VarAssignNode represents a variable assignment node
 type VarAssignNode struct {
 	VarNameTok    *Token
 	ValueNode     Node
+	isConst       bool
 	PositionStart *Position
 	PositionEnd   *Position
 }
@@ -147,8 +155,9 @@ type RTResult struct {
 
 // SymbolTable represents a symbol table in the interpreter.
 type SymbolTable struct {
-	symbols map[string]*Value
-	parent  *SymbolTable
+	symbols   map[string]*Value
+	constants map[string]*Value
+	parent    *SymbolTable
 }
 
 type IfCaseNode struct {
@@ -227,7 +236,7 @@ type ContinueNode struct {
 }
 
 type ImportNode struct {
-	FunctionName               *Token
+	FunctionNames              []*Token
 	ModuleName                 *Token
 	PositionStart, PositionEnd *Position
 }

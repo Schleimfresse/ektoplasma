@@ -7,5 +7,5 @@ index mit [] nicht mit /
 kommentare mit //
 documentation für lang
 ============
-Import statement: kein export, mit prefix im import
+Import statement: kein export, mit prefix im import [+]
 Std. Lib als def und low level access auf build in methods

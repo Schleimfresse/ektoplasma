@@ -96,7 +96,7 @@ func stringWithArrows(text string, posStart Position, posEnd Position) string {
 
 		// Append to result
 		result.WriteString(line + "\n")
-		log.Println(colEnd, colStart)
+
 		if colEnd-colStart == 0 {
 			result.WriteString(strings.Repeat(" ", colStart) + strings.Repeat("^", 1))
 		} else {
@@ -137,8 +137,8 @@ func (e RuntimeError) generateTraceback() string {
 
 func (e RuntimeError) AsString() string {
 	result := e.generateTraceback()
-	result += fmt.Sprintf("%s%s: %s%s", bold, e.ErrorName, e.Details, reset)
-	result += "\n\n" + stringWithArrows(e.PosStart.Ftxt, *e.PosStart, *e.PosEnd)
+	result += fmt.Sprintf("%s%s: %s%s\n\n", bold, e.ErrorName, e.Details, reset)
+	result += stringWithArrows(e.PosStart.Ftxt, *e.PosStart, *e.PosEnd)
 	return result
 }
 

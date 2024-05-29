@@ -11,6 +11,7 @@ func NewInterpreter() Interpreter {
 }
 
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
+	log.Println(reflect.TypeOf(node), node.String())
 	switch n := node.(type) {
 	case *UnaryOpNode:
 		return i.visitUnaryOpNode(*n, context)
@@ -36,6 +37,8 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitStringNode(*n, context)
 	case *ArrayNode:
 		return i.visitArrayNode(*n, context)
+	case *IndexNode:
+		return i.visitIndexNode(*n, context)
 	case *ReturnNode:
 		return i.visitReturnNode(*n, context)
 	case *ContinueNode:
@@ -75,7 +78,7 @@ func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResu
 	res := NewRTResult()
 
 	moduleName := node.ModuleName
-	functionName := node.FunctionName
+	functionNames := node.FunctionNames
 
 	moduleContent, err := LoadModule(moduleName.Value.(string))
 	if err != nil {
@@ -89,7 +92,7 @@ func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResu
 	moduleContext := NewContext(fmt.Sprintf("<%v>", moduleName.Value.(string)), context, node.PositionStart)
 	moduleContext.SymbolTable = NewSymbolTable(nil)
 
-	tokens, Err := NewLexer(moduleName.Value.(string), moduleContent).MakeTokens()
+	tokens, Err := NewLexer(moduleName.Value.(string)+".ecp", moduleContent).MakeTokens()
 	if Err != nil {
 		return res.Failure(NewRTError(node.PositionStart, node.PositionEnd, fmt.Sprintf("Error tokenizing imported module %v", moduleName), context))
 	}
@@ -107,17 +110,19 @@ func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResu
 	}
 
 	// Retrieve the function from the module's symbol table
-	functionValue, exists := moduleContext.SymbolTable.Get(functionName.Value.(string))
-	if !exists {
-		return res.Failure(NewRTError(
-			node.PositionStart, node.PositionEnd,
-			fmt.Sprintf("Function '%s' not declared in module '%s'", functionName.Value.(string), moduleName.Value.(string)),
-			context,
-		))
-	}
+	for _, functionName := range functionNames {
+		functionValue, exists := moduleContext.SymbolTable.Get(functionName.Value.(string))
+		if !exists {
+			return res.Failure(NewRTError(
+				node.PositionStart, node.PositionEnd,
+				fmt.Sprintf("Function '%s' not declared in module '%s'", functionName.Value.(string), moduleName.Value.(string)),
+				context,
+			))
+		}
 
-	// Register the function in the current context
-	context.SymbolTable.Set(functionName.Value.(string), functionValue)
+		// Register the function in the current context
+		context.SymbolTable.Set(functionName.Value.(string), functionValue, false)
+	}
 
 	return res.Success(NewEmptyValue())
 }
@@ -127,9 +132,7 @@ func (i *Interpreter) visitArrayNode(node ArrayNode, context *Context) *RTResult
 	var elements []*Value
 
 	for _, elementNode := range node.ElementNodes {
-		log.Println("EL node:", reflect.TypeOf(elementNode))
 		result := i.visit(elementNode, context)
-		log.Println("EL result:", result)
 		if result.Error != nil {
 			return result
 		}
@@ -199,11 +202,7 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 			return res.Failure(NewRTError(left.GetPosStart(), right.GetPosEnd(), fmt.Sprintf("Cannot multiply values of types %s and %s", left.Type(), right.Type()), context))
 		}
 	case TT_DIV:
-		if left.Array != nil && right.Number != nil {
-			result, err = left.Array.DividedBy(right)
-		} else {
-			result, err = left.Number.DividedBy(right.Number)
-		}
+		result, err = left.Number.DividedBy(right.Number)
 	case TT_POW:
 		result, err = left.Number.PowedBy(right.Number)
 	case TT_EE:
@@ -280,7 +279,7 @@ func (i *Interpreter) visitUnaryOpNode(node UnaryOpNode, context *Context) *RTRe
 		if err != nil {
 			return res.Failure(err)
 		}
-	} else if node.OpTok.Matches(TT_KEYWORD, "NOT") {
+	} else if node.OpTok.Matches(TT_KEYWORD, "not") {
 		result, err = num.Notted()
 	}
 
@@ -320,7 +319,10 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 		return res
 	}
 
-	context.SymbolTable.Set(varName.(string), value)
+	err := context.SymbolTable.Set(varName.(string), value, node.isConst)
+	if err != nil {
+		return res.Failure(err)
+	}
 
 	return res.Success(NewEmptyValue())
 }
@@ -410,7 +412,7 @@ func (i *Interpreter) visitForNode(node ForNode, context *Context) *RTResult {
 	}
 
 	for condition() {
-		context.SymbolTable.Set(node.VarNameTok.Value.(string), NewNumber(iVal))
+		context.SymbolTable.Set(node.VarNameTok.Value.(string), NewNumber(iVal), false)
 
 		iVal += stepValue.ValueField.(int)
 
@@ -492,7 +494,7 @@ func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTRe
 	value.SetContext(context).SetPos(node.PosStart(), node.PosEnd())
 
 	if node.VarNameTok != nil {
-		context.SymbolTable.Set(*funcName, value)
+		context.SymbolTable.Set(*funcName, value, false)
 	}
 
 	return res.Success(NewEmptyValue())
@@ -501,6 +503,7 @@ func (i *Interpreter) visitFuncDefNode(node FuncDefNode, context *Context) *RTRe
 func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 	res := NewRTResult()
 	args := make([]*Value, len(node.ArgNodes))
+
 	Call := res.Register(i.visit(node.NodeToCall, context))
 	if res.ShouldReturn() {
 		return res
@@ -509,6 +512,9 @@ func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 
 	for idx, argNode := range node.ArgNodes {
 		args[idx] = res.Register(i.visit(argNode, context))
+		if res.Error != nil {
+			return res
+		}
 		if res.ShouldReturn() {
 			return res
 		}
@@ -523,9 +529,26 @@ func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 	if res.ShouldReturn() {
 		return res
 	}
-
 	returnValue = returnValue.Copy().SetPos(node.PosStart(), node.PosEnd()).SetContext(context)
 	return res.Success(returnValue)
+}
+
+func (i *Interpreter) visitIndexNode(node IndexNode, context *Context) *RTResult {
+	res := NewRTResult()
+	array := i.visit(node.VarAccessNode, context)
+	index := i.visit(node.IndexNode, context)
+
+	if array.Value.Array != nil {
+		value, err := array.Value.Array.GetIndex(index.Value.Number)
+
+		res.Failure(err)
+		if err != nil {
+			return res
+		}
+		return res.Success(value)
+	} else {
+		return res.Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("Element at index %v could not be retrieved, index is out of bounds with length 0", node.IndexNode.Value), context))
+	}
 }
 
 func (i *Interpreter) visitReturnNode(node ReturnNode, context *Context) *RTResult {
@@ -540,7 +563,6 @@ func (i *Interpreter) visitReturnNode(node ReturnNode, context *Context) *RTResu
 	} else {
 		value = NewNull()
 	}
-
 	return res.SuccessReturn(value)
 }
 
@@ -625,8 +647,9 @@ func NewSymbolTable(symboltable *SymbolTable) *SymbolTable {
 	if symboltable == nil {
 
 		return &SymbolTable{
-			symbols: make(map[string]*Value),
-			parent:  nil,
+			symbols:   make(map[string]*Value),
+			constants: make(map[string]*Value),
+			parent:    nil,
 		}
 	} else {
 		return &SymbolTable{parent: symboltable, symbols: symboltable.symbols}
@@ -635,16 +658,29 @@ func NewSymbolTable(symboltable *SymbolTable) *SymbolTable {
 
 // Get retrieves the value associated with the name from the symbol table.
 func (st *SymbolTable) Get(name string) (*Value, bool) {
-	value, exists := st.symbols[name]
-	if !exists && st.parent != nil {
+	if value, exists := st.symbols[name]; exists {
+		return value, exists
+	}
+	if value, exists := st.constants[name]; exists {
+		return value, exists
+	}
+	if st.parent != nil {
 		return st.parent.Get(name)
 	}
-	return value, exists
+	return nil, false
 }
 
 // Set sets the value associated with the name in the symbol table.
-func (st *SymbolTable) Set(name string, value *Value) {
-	st.symbols[name] = value
+func (st *SymbolTable) Set(name string, value *Value, isConst bool) *RuntimeError {
+	if isConst {
+		if _, exists := st.constants[name]; exists {
+			return NewRTError(value.GetPosStart(), value.GetPosEnd(), fmt.Sprintf("Cannot reassign constant '%v'", name), value.GetContext())
+		}
+		st.constants[name] = value
+	} else {
+		st.symbols[name] = value
+	}
+	return nil
 }
 
 // Remove removes the entry associated with the name from the symbol table.
