@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 )
 
@@ -132,7 +133,8 @@ func (p *Parser) ArrayExpr() *ParseResult {
 // ifExpr is a method of Parser that handles 'IF' expressions.
 func (p *Parser) ifExpr() *ParseResult {
 	res := NewParseResult()
-	allCases := res.Register(p.ifExprCases("IF"))
+	allCases := res.Register(p.ifExprCases("if"))
+	log.Println("IF EXPR:", res.Error)
 	if res.Error != nil {
 		return res
 	}
@@ -174,11 +176,11 @@ func (p *Parser) ifExprC() *ParseResult {
 			}
 			elseCase = NewElseCaseNode(statements, true)
 
-			if p.Current.Matches(TT_KEYWORD, "end") {
+			if p.Current.Type == TT_RBRACE {
 				res.RegisterAdvancement()
 				p.Advance()
 			} else {
-				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'end'").Error)
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '}'").Error)
 			}
 		} else {
 			expr := res.Register(p.Statement())
@@ -188,7 +190,7 @@ func (p *Parser) ifExprC() *ParseResult {
 			elseCase = NewElseCaseNode(expr, false)
 		}
 	}
-
+	log.Println("else:", elseCase)
 	return res.Success(elseCase)
 }
 
@@ -209,6 +211,7 @@ func (p *Parser) ifExprBOrC() *ParseResult {
 		cases, elseCase = ifNode.Cases, ifNode.ElseCase
 	} else {
 		elseCaseResult := res.Register(p.ifExprC())
+		log.Println("else err:", res.Error)
 		if res.Error != nil {
 			return res
 		}
@@ -235,8 +238,8 @@ func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 		return res
 	}
 
-	if !p.Current.Matches(TT_KEYWORD, "then") {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'then'").Error)
+	if p.Current.Type != TT_LBRACE {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '{'").Error)
 	}
 
 	res.RegisterAdvancement()
@@ -251,8 +254,8 @@ func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 			return res
 		}
 		cases = append(cases, NewIfCaseNode(condition, statements, true))
-
-		if p.Current.Matches(TT_KEYWORD, "end") {
+		log.Println("if cases:", p.Current.Type)
+		if p.Current.Type == TT_RBRACE {
 			res.RegisterAdvancement()
 			p.Advance()
 		} else {
@@ -352,10 +355,10 @@ func (p *Parser) ForExpr() *ParseResult {
 		}
 	}
 
-	if !p.Current.Matches(TT_KEYWORD, "then") {
+	if p.Current.Type != TT_LBRACE {
 		return res.Failure(NewInvalidSyntaxError(
 			p.Current.PosStart, p.Current.PosEnd,
-			"Expected 'then'",
+			"Expected '{'",
 		).Error)
 	}
 
@@ -370,8 +373,8 @@ func (p *Parser) ForExpr() *ParseResult {
 		if res.Error != nil {
 			return res
 		}
-		if !p.Current.Matches(TT_KEYWORD, "end") {
-			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'end'").Error)
+		if p.Current.Type != TT_RBRACE {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '}'").Error)
 		}
 
 		res.RegisterAdvancement()
@@ -406,10 +409,10 @@ func (p *Parser) WhileExpr() *ParseResult {
 		return res
 	}
 
-	if !p.Current.Matches(TT_KEYWORD, "then") {
+	if p.Current.Type != TT_LBRACE {
 		return res.Failure(NewInvalidSyntaxError(
 			p.Current.PosStart, p.Current.PosEnd,
-			"Expected 'then'",
+			"Expected '{'",
 		).Error)
 	}
 
@@ -425,8 +428,8 @@ func (p *Parser) WhileExpr() *ParseResult {
 			return res
 		}
 
-		if !p.Current.Matches(TT_KEYWORD, "end") {
-			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'END'").Error)
+		if p.Current.Type != TT_RBRACE {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '}'").Error)
 		}
 
 		res.RegisterAdvancement()
@@ -563,6 +566,16 @@ func (p *Parser) FuncDef() *ParseResult {
 	res.RegisterAdvancement()
 	p.Advance()
 
+	if p.Current.Type != TT_LBRACE {
+		return res.Failure(NewInvalidSyntaxError(
+			p.Current.PosStart, p.Current.PosEnd,
+			"Expected '{'",
+		).Error)
+	}
+
+	res.RegisterAdvancement()
+	p.Advance()
+
 	if p.Current.Type == TT_ARROW {
 		res.RegisterAdvancement()
 		p.Advance()
@@ -587,8 +600,8 @@ func (p *Parser) FuncDef() *ParseResult {
 		return res
 	}
 
-	if !p.Current.Matches(TT_KEYWORD, "end") {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'end'").Error)
+	if p.Current.Type != TT_RBRACE {
+		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected '}'").Error)
 	}
 
 	res.RegisterAdvancement()
@@ -660,19 +673,20 @@ func (p *Parser) Atom() *ParseResult {
 		}
 		return res.Success(listExpr)
 	} else if tok.Type == TT_LPAREN {
-		p.Advance() // Advance token index here
+		p.Advance()
 		expr := res.Register(p.Expr())
 		if res.Error != nil {
 			return res
 		}
 		if p.Current.Type == TT_RPAREN {
-			p.Advance() // Advance token index here
+			p.Advance()
 			return res.Success(expr)
 		}
 		err := NewInvalidSyntaxError(tok.PosStart, tok.PosEnd, "Expected ')'")
 		return res.Failure(err.Error)
 	} else if tok.Matches(TT_KEYWORD, "if") {
 		IfExpr := res.Register(p.ifExpr())
+		log.Println("ERR IN IF:", res.Error)
 		if res.Error != nil {
 			return res
 		}
@@ -691,6 +705,7 @@ func (p *Parser) Atom() *ParseResult {
 		return res.Success(WhileExpr)
 	} else if tok.Matches(TT_KEYWORD, "func") {
 		FuncDef := res.Register(p.FuncDef())
+		log.Println("FUNC DEF RET:", FuncDef)
 		if res.Error != nil {
 			return res
 		}
@@ -758,12 +773,11 @@ func (p *Parser) Term() *ParseResult {
 }
 
 func (p *Parser) Statements() *ParseResult {
+	log.Println("TOK", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 	res := ParseResult{AdvanceCount: 0}
 
-	// Check if identifier is unexpected
-	if p.Current.Type == TT_IDENTIFIER && !GlobalSymbolTable.Contains(p.Current.Value.(string)) {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Unresolved reference '%s'", p.Current.Value.(string))).Error)
-	}
+	// wird getriggered weil symbol table noch nicht gesetzt wurde muss so gestaltet werden das abfrage erst erfolgt wenn table aktualisiert wurde
+	log.Println("TOK 2", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 
 	var statements []Node
 	PosStart := p.Current.PosStart.Copy()
@@ -772,11 +786,15 @@ func (p *Parser) Statements() *ParseResult {
 		res.RegisterAdvancement()
 		p.Advance()
 	}
+	log.Println("TOK 3", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 
 	statement := res.Register(p.Statement())
 	if res.Error != nil {
 		return &res
 	}
+
+	log.Println("TOK 4", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
+
 	statements = append(statements, statement)
 
 	MoreStatements := true
@@ -795,6 +813,7 @@ func (p *Parser) Statements() *ParseResult {
 			break
 		}
 		statement = res.TryRegister(p.Statement())
+		log.Println("FOR STATEMENT", p.Current.Type, p.Current.Value, statement)
 		if statement == nil {
 			p.Reverse(&res.ToReverseCount)
 			MoreStatements = false
@@ -865,10 +884,19 @@ func (p *Parser) Expr() *ParseResult {
 		p.Advance()
 
 		if p.Current.Type != TT_EQ {
-			return res.Failure(NewInvalidSyntaxError(
-				p.Current.PosStart, p.Current.PosEnd,
-				"Expected '='",
-			).Error)
+			if isConst {
+				return res.Failure(NewInvalidSyntaxError(
+					p.Current.PosStart, p.Current.PosEnd,
+					"Missing assignment in const declaration",
+				).Error)
+			} else if p.Current.Type == TT_NEWLINE {
+				return res.Success(NewVarAssignNode(varName, nil, false, true))
+			} else {
+				return res.Failure(NewInvalidSyntaxError(
+					p.Current.PosStart, p.Current.PosEnd,
+					"Expected assignment or new line",
+				).Error)
+			}
 		}
 
 		res.RegisterAdvancement()
@@ -878,12 +906,33 @@ func (p *Parser) Expr() *ParseResult {
 		if res.Error != nil {
 			return res
 		}
-		return res.Success(NewVarAssignNode(varName, expr, isConst))
+		return res.Success(NewVarAssignNode(varName, &expr, isConst, true))
+	} else if p.Current.Type == TT_IDENTIFIER { // in case of a variable re-assignment, so we don't need the var keyword for each assignment, only for the initial
+		log.Println("re-assignment parser")
+		varName := p.Current
+		res.RegisterAdvancement()
+		p.Advance()
+
+		if p.Current.Type == TT_EQ {
+			res.RegisterAdvancement()
+			p.Advance()
+
+			expr := res.Register(p.Expr())
+			if res.Error != nil {
+				return res
+			}
+			log.Println("re-assignment parser 2, node:", NewVarAssignNode(varName, &expr, false, false))
+
+			return res.Success(NewVarAssignNode(varName, &expr, false, false))
+		} else {
+			log.Println("REVerse")
+			p.Reverse(&res.ToReverseCount)
+		}
 	}
 
 	and := "AND"
 	or := "OR"
-	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}, nil))
+	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}, p.CompExpr))
 
 	if res.Error != nil {
 		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'").Error)

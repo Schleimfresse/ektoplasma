@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 )
 
 // NewFunction creates a new Function instance.
@@ -154,6 +155,7 @@ func NewBuildInFunction(name string) *Value {
 	BuildInFn.Methods["append"] = Method{ArgsNames: []string{"array", "value"}, Fn: BuildInFn.ExecuteAppend}
 	BuildInFn.Methods["len"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteLen}
 	BuildInFn.Methods["pop"] = Method{ArgsNames: []string{"array", "index"}, Fn: BuildInFn.ExecutePop}
+	BuildInFn.Methods["str"] = Method{ArgsNames: []string{"number"}, Fn: BuildInFn.ExecuteStr}
 
 	return &Value{BuildInFunction: BuildInFn}
 
@@ -193,7 +195,7 @@ func (b *BuildInFunction) Copy() *Value {
 }
 
 func (b *BuildInFunction) executeIsNumber(execCtx *Context) *RTResult {
-	value, exists := execCtx.SymbolTable.Get("value")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if exists && value.Number != nil {
 		return NewRTResult().Success(NewBoolean(One))
@@ -203,7 +205,7 @@ func (b *BuildInFunction) executeIsNumber(execCtx *Context) *RTResult {
 }
 
 func (b *BuildInFunction) executeIsFunction(execCtx *Context) *RTResult {
-	value, exists := execCtx.SymbolTable.Get("value")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if exists && value.Function != nil {
 		return NewRTResult().Success(NewBoolean(One))
@@ -213,7 +215,7 @@ func (b *BuildInFunction) executeIsFunction(execCtx *Context) *RTResult {
 }
 
 func (b *BuildInFunction) ExecuteIsArray(execCtx *Context) *RTResult {
-	value, exists := execCtx.SymbolTable.Get("value")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if exists && value.Array != nil {
 		return NewRTResult().Success(NewBoolean(One))
@@ -224,10 +226,10 @@ func (b *BuildInFunction) ExecuteIsArray(execCtx *Context) *RTResult {
 
 func (b *BuildInFunction) ExecuteAppend(execCtx *Context) *RTResult {
 	res := NewRTResult()
-	array, _ := execCtx.SymbolTable.Get("array")
-	value, _ := execCtx.SymbolTable.Get("value")
+	array, exists, _ := execCtx.SymbolTable.Get("array")
+	value, _, _ := execCtx.SymbolTable.Get("value")
 
-	if array.Array == nil {
+	if exists && array.Array == nil {
 		return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), "First argument must be an array", execCtx))
 	}
 
@@ -236,8 +238,8 @@ func (b *BuildInFunction) ExecuteAppend(execCtx *Context) *RTResult {
 }
 
 func (b *BuildInFunction) ExecuteLen(execCtx *Context) *RTResult {
-	value, _ := execCtx.SymbolTable.Get("value")
-	if value.Array != nil {
+	value, exists, _ := execCtx.SymbolTable.Get("value")
+	if exists && value.Array != nil {
 		return NewRTResult().Success(NewNumber(len(value.Array.Elements)))
 	} else if value.String != nil {
 		return NewRTResult().Success(NewNumber(len(value.String.ValueField)))
@@ -247,10 +249,10 @@ func (b *BuildInFunction) ExecuteLen(execCtx *Context) *RTResult {
 }
 
 func (b *BuildInFunction) ExecutePop(execCtx *Context) *RTResult {
-	index, _ := execCtx.SymbolTable.Get("index")
-	array, _ := execCtx.SymbolTable.Get("array")
+	index, _, _ := execCtx.SymbolTable.Get("index")
+	array, exists, _ := execCtx.SymbolTable.Get("array")
 
-	if array.Array != nil {
+	if exists && array.Array != nil {
 		if index.Number != nil {
 			arr := array.Array.Elements
 			idx := index.Number.ValueField.(int)
@@ -269,4 +271,21 @@ func (b *BuildInFunction) ExecutePop(execCtx *Context) *RTResult {
 	} else {
 		return NewRTResult().Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("First argument must be an Array, got: %v", index.Type()), execCtx))
 	}
+}
+
+func (b *BuildInFunction) ExecuteStr(execCtx *Context) *RTResult {
+	res := NewRTResult()
+	number, exists, _ := execCtx.SymbolTable.Get("number")
+
+	if !exists {
+		return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), "Missing an argument for a conversion to string", execCtx))
+	} else if number.Number != nil {
+		switch number := number.Number.ValueField.(type) {
+		case int:
+			return res.Success(NewString(strconv.Itoa(number)))
+		case float64:
+			return res.Success(NewString(strconv.Itoa(int(number))))
+		}
+	}
+	return res.Success(NewNull())
 }

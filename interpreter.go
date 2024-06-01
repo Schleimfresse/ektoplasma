@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 )
 
@@ -11,7 +10,6 @@ func NewInterpreter() Interpreter {
 }
 
 func (i *Interpreter) visit(node Node, context *Context) *RTResult {
-	log.Println(reflect.TypeOf(node), node.String())
 	switch n := node.(type) {
 	case *UnaryOpNode:
 		return i.visitUnaryOpNode(*n, context)
@@ -78,7 +76,7 @@ func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResu
 	res := NewRTResult()
 
 	moduleName := node.ModuleName
-	functionNames := node.FunctionNames
+	importNames := node.ImportNames
 
 	moduleContent, err := LoadModule(moduleName.Value.(string))
 	if err != nil {
@@ -89,7 +87,7 @@ func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResu
 		))
 	}
 
-	moduleContext := NewContext(fmt.Sprintf("<%v>", moduleName.Value.(string)), context, node.PositionStart)
+	moduleContext := NewContext(fmt.Sprintf("<module %v>", moduleName.Value.(string)), context, node.PositionStart)
 	moduleContext.SymbolTable = NewSymbolTable(nil)
 
 	tokens, Err := NewLexer(moduleName.Value.(string)+".ecp", moduleContent).MakeTokens()
@@ -110,18 +108,18 @@ func (i *Interpreter) visitImportNode(node ImportNode, context *Context) *RTResu
 	}
 
 	// Retrieve the function from the module's symbol table
-	for _, functionName := range functionNames {
-		functionValue, exists := moduleContext.SymbolTable.Get(functionName.Value.(string))
+	for _, importName := range importNames {
+		value, exists, isConst := moduleContext.SymbolTable.Get(importName.Value.(string))
 		if !exists {
 			return res.Failure(NewRTError(
 				node.PositionStart, node.PositionEnd,
-				fmt.Sprintf("Function '%s' not declared in module '%s'", functionName.Value.(string), moduleName.Value.(string)),
+				fmt.Sprintf("Function '%s' not declared in module '%s'", importName.Value.(string), moduleName.Value.(string)),
 				context,
 			))
 		}
 
 		// Register the function in the current context
-		context.SymbolTable.Set(functionName.Value.(string), functionValue, false)
+		context.SymbolTable.Set(importName.Value.(string), value, isConst)
 	}
 
 	return res.Success(NewEmptyValue())
@@ -214,6 +212,8 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 			result, err = right.Null.GetComparisonEq(left)
 		} else if right.Boolean != nil && left.Boolean != nil {
 			result, err = left.Boolean.GetComparisonEq(right.Boolean)
+		} else if right.String != nil && left.String != nil {
+			result, err = left.String.GetComparisonEq(right.String)
 		} else {
 			return res.Failure(NewRTError(left.GetPosStart(), right.GetPosEnd(), fmt.Sprintf("Cannot compaire values of types %s and %s ", left.Type(), right.Type()), context))
 		}
@@ -230,7 +230,11 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 	case TT_LT:
 		result, err = left.Number.GetComparisonLt(right.Number)
 	case TT_GT:
-		result, err = left.Number.GetComparisonGt(right.Number)
+		if left.Number != nil && right.Number != nil {
+			result, err = left.Number.GetComparisonGt(right.Number)
+		} else {
+			return res.Failure(NewRTError(left.GetPosStart(), right.GetPosEnd(), fmt.Sprintf("Cannot compaire values of types %s and %s ", left.Type(), right.Type()), context))
+		}
 	case TT_LTE:
 		result, err = left.Number.GetComparisonLte(right.Number)
 	case TT_GTE:
@@ -296,11 +300,11 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 	res := NewRTResult()
 	varName := node.VarNameTok.Value
 
-	value, exists := context.SymbolTable.Get(varName.(string))
+	value, exists, _ := context.SymbolTable.Get(varName.(string))
 	if !exists {
 		return res.Failure(NewRTError(
 			node.PosStart(), node.PosEnd(),
-			fmt.Sprintf("'%s' is not defined", varName),
+			fmt.Sprintf("Unresolved reference '%s'", varName),
 			context))
 	}
 
@@ -313,8 +317,21 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *RTResult {
 	res := NewRTResult()
 	varName := node.VarNameTok.Value
+	var value *Value
 
-	value := res.Register(i.visit(node.ValueNode, context))
+	if context.SymbolTable.Contains(varName.(string)) && node.declaration && GlobalSymbolTable == context.SymbolTable {
+		return res.Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("Variable '%s' redeclared in scope", varName), context))
+	} else if !node.declaration && !context.SymbolTable.Contains(varName.(string)) {
+		return res.Failure(NewRTError(
+			node.PosStart(), node.PosEnd(),
+			fmt.Sprintf("Unresolved reference '%s'", varName),
+			context))
+	}
+	if node.ValueNode != nil {
+		value = res.Register(i.visit(*node.ValueNode, context))
+	} else {
+		value = NewNull()
+	}
 	if res.ShouldReturn() {
 		return res
 	}
@@ -656,18 +673,18 @@ func NewSymbolTable(symboltable *SymbolTable) *SymbolTable {
 	}
 }
 
-// Get retrieves the value associated with the name from the symbol table.
-func (st *SymbolTable) Get(name string) (*Value, bool) {
+// Get retrieves the value associated with the name from the symbol table. 1 arg Value, 2 exists, 3 isConstant
+func (st *SymbolTable) Get(name string) (*Value, bool, bool) {
 	if value, exists := st.symbols[name]; exists {
-		return value, exists
+		return value, exists, false
 	}
 	if value, exists := st.constants[name]; exists {
-		return value, exists
+		return value, exists, true
 	}
 	if st.parent != nil {
 		return st.parent.Get(name)
 	}
-	return nil, false
+	return nil, false, false
 }
 
 // Set sets the value associated with the name in the symbol table.
@@ -690,7 +707,7 @@ func (st *SymbolTable) Remove(name string) {
 
 // Set sets the value associated with the name in the symbol table.
 func (st *SymbolTable) Contains(name string) bool {
-	_, exists := st.Get(name)
+	_, exists, _ := st.Get(name)
 	return exists
 }
 

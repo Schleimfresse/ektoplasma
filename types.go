@@ -49,8 +49,9 @@ type IndexNode struct {
 // VarAssignNode represents a variable assignment node
 type VarAssignNode struct {
 	VarNameTok    *Token
-	ValueNode     Node
+	ValueNode     *Node
 	isConst       bool
+	declaration   bool
 	PositionStart *Position
 	PositionEnd   *Position
 }
@@ -236,7 +237,7 @@ type ContinueNode struct {
 }
 
 type ImportNode struct {
-	FunctionNames              []*Token
+	ImportNames                []*Token
 	ModuleName                 *Token
 	PositionStart, PositionEnd *Position
 }

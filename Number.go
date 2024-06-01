@@ -139,7 +139,7 @@ func (n *Number) PowedBy(other *Number) (*Value, *RuntimeError) {
 			otherVal = float64(val)
 		default:
 			// Handle unsupported types here
-			return nil, NewRTError(other.PosStart(), other.PosEnd(), "Invalid operation", other.Context)
+			return nil, n.IllegalOperation(other)
 		}
 
 		value := NewNumber(math.Pow(nVal, otherVal))
@@ -201,24 +201,27 @@ func (n *Number) GetComparisonLt(other *Number) (*Value, *RuntimeError) {
 }
 
 func (n *Number) GetComparisonGt(other *Number) (*Value, *RuntimeError) {
+
 	switch nVal := n.ValueField.(type) {
 	case int:
-		if otherIsInt, ok := other.ValueField.(int); ok {
-			value := NewBoolean(ConvertBoolToInt(nVal > otherIsInt))
+		switch otherVal := other.ValueField.(type) {
+		case int:
+			value := NewBoolean(ConvertBoolToInt(nVal > otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
-		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
-			value := NewBoolean(ConvertBoolToInt(float64(nVal) > otherIsFloat))
+		case float64:
+			value := NewBoolean(ConvertBoolToInt(float64(nVal) > otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	case float64:
-		if otherIsInt, ok := other.ValueField.(int); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) > otherIsInt))
+		switch otherVal := other.ValueField.(type) {
+		case int:
+			value := NewBoolean(ConvertBoolToInt(int(nVal) > otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
-		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(float64) > otherIsFloat))
+		case float64:
+			value := NewBoolean(ConvertBoolToInt(n.ValueField.(float64) > otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
@@ -227,24 +230,30 @@ func (n *Number) GetComparisonGt(other *Number) (*Value, *RuntimeError) {
 }
 
 func (n *Number) GetComparisonLte(other *Number) (*Value, *RuntimeError) {
+	if other == nil {
+		return nil, n.IllegalOperation(other)
+	}
+
 	switch nVal := n.ValueField.(type) {
 	case int:
-		if otherIsInt, ok := other.ValueField.(int); ok {
-			value := NewBoolean(ConvertBoolToInt(nVal <= otherIsInt))
+		switch otherVal := other.ValueField.(type) {
+		case int:
+			value := NewBoolean(ConvertBoolToInt(nVal <= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
-		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
-			value := NewBoolean(ConvertBoolToInt(float64(nVal) <= otherIsFloat))
+		case float64:
+			value := NewBoolean(ConvertBoolToInt(float64(nVal) <= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	case float64:
-		if otherIsInt, ok := other.ValueField.(int); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) <= otherIsInt))
+		switch otherVal := other.ValueField.(type) {
+		case int:
+			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) <= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
-		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(float64) <= otherIsFloat))
+		case float64:
+			value := NewBoolean(ConvertBoolToInt(n.ValueField.(float64) <= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
@@ -253,24 +262,30 @@ func (n *Number) GetComparisonLte(other *Number) (*Value, *RuntimeError) {
 }
 
 func (n *Number) GetComparisonGte(other *Number) (*Value, *RuntimeError) {
+	if other == nil {
+		return nil, n.IllegalOperation(other)
+	}
+
 	switch nVal := n.ValueField.(type) {
 	case int:
-		if otherIsInt, ok := other.ValueField.(int); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) >= otherIsInt))
+		switch otherVal := other.ValueField.(type) {
+		case int:
+			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) >= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
-		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
-			value := NewBoolean(ConvertBoolToInt(float64(nVal) >= otherIsFloat))
+		case float64:
+			value := NewBoolean(ConvertBoolToInt(float64(nVal) >= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}
 	case float64:
-		if otherIsInt, ok := other.ValueField.(int); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) >= otherIsInt))
+		switch otherVal := other.ValueField.(type) {
+		case int:
+			value := NewBoolean(ConvertBoolToInt(n.ValueField.(int) >= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
-		} else if otherIsFloat, ok := other.ValueField.(float64); ok {
-			value := NewBoolean(ConvertBoolToInt(n.ValueField.(float64) >= otherIsFloat))
+		case float64:
+			value := NewBoolean(ConvertBoolToInt(n.ValueField.(float64) >= otherVal))
 			value.SetContext(n.Context).SetPos(n.PositionStart, n.PositionEnd)
 			return value, nil
 		}

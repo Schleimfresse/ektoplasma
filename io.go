@@ -9,7 +9,7 @@ import (
 )
 
 func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
-	value, exists := execCtx.SymbolTable.Get("value")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if exists {
 		log.Print(interfaceToBytes(value.Value()))
@@ -23,7 +23,7 @@ func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
 }
 
 func (b *BuildInFunction) executePrintLn(execCtx *Context) *RTResult {
-	value, exists := execCtx.SymbolTable.Get("value")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if exists {
 		_, err := syscall.Write(syscall.Stdout, interfaceToBytes(value.Value()))
@@ -69,7 +69,7 @@ func (b *BuildInFunction) executeInput(execCtx *Context) *RTResult {
 }
 
 func (b *BuildInFunction) executeIsString(execCtx *Context) *RTResult {
-	value, exists := execCtx.SymbolTable.Get("value")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if exists && value.String != nil {
 		return NewRTResult().Success(NewBoolean(One))

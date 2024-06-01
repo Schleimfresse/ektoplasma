@@ -85,10 +85,10 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			tokens = append(tokens, NewToken(TT_MUL, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == '{' {
-			tokens = append(tokens, NewToken(TT_LCBRACK, nil, l.Pos.Copy(), l.Pos.Copy()))
+			tokens = append(tokens, NewToken(TT_LBRACE, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == '}' {
-			tokens = append(tokens, NewToken(TT_RCBRACK, nil, l.Pos.Copy(), l.Pos.Copy()))
+			tokens = append(tokens, NewToken(TT_RBRACE, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else if l.CurrentChar == '/' {
 			tokens = append(tokens, l.DivisionOrComment())
@@ -129,6 +129,9 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			return []*Token{}, &NewIllegalCharError(posStart, l.Pos, "'"+char+"'").Error
 		}
 	}
+
+	// wehn newline not last breaks things, TODO err wenn letztes zeichen keine newline
+	tokens = append(tokens, NewToken(TT_NEWLINE, nil, l.Pos.Copy(), l.Pos.Copy()))
 	tokens = append(tokens, NewToken(TT_EOF, nil, l.Pos.Copy(), l.Pos.Copy()))
 	return tokens, nil
 }

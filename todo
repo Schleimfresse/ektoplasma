@@ -8,4 +8,5 @@ kommentare mit //
 documentation für lang
 ============
 Import statement: kein export, mit prefix im import [+]
+|-> definitions in ecp, binding in go, types,
 Std. Lib als def und low level access auf build in methods

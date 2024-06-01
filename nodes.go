@@ -39,8 +39,8 @@ func NewIndexNode(varAccessNode *VarAccessNode, index *NumberNode) *IndexNode {
 }
 
 // NewVarAssignNode creates a new VarAssignNode instance.
-func NewVarAssignNode(varNameTok *Token, valueNode Node, isConst bool) *VarAssignNode {
-	return &VarAssignNode{varNameTok, valueNode, isConst, varNameTok.PosStart, varNameTok.PosEnd}
+func NewVarAssignNode(varNameTok *Token, valueNode *Node, isConst bool, declaration bool) *VarAssignNode {
+	return &VarAssignNode{varNameTok, valueNode, isConst, declaration, varNameTok.PosStart, varNameTok.PosEnd}
 }
 
 func NewIfCaseNode(condition, expr Node, flag bool) *IfCaseNode {
@@ -158,7 +158,7 @@ func NewImportNode(functionNames []*Token, modulName *Token, posStart *Position,
 
 // String returns the string representation of the array node.
 func (i *ImportNode) String() string {
-	return fmt.Sprintf("(%v, %v)", i.FunctionNames, i.ModuleName)
+	return fmt.Sprintf("(%v, %v)", i.ImportNames, i.ModuleName)
 }
 
 func (i *ImportNode) PosStart() *Position {

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"strings"
 )
@@ -121,8 +120,6 @@ func (e RuntimeError) generateTraceback() string {
 	var result string
 	pos := e.PosStart
 	ctx := e.Context
-
-	log.Println("POS FN", fmt.Sprintf("%s%s: %s%s", bold, e.ErrorName, e.Details, reset))
 
 	ErrorFilePath, _ := filepath.Abs(pos.Fn)
 	for ctx != nil {

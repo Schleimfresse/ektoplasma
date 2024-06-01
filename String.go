@@ -57,3 +57,14 @@ func (s *String) AddedTo(other *String) (*Value, *RuntimeError) {
 	value.SetContext(s.Context)
 	return value, nil
 }
+
+func (s *String) GetComparisonEq(other *String) (*Value, *RuntimeError) {
+	if other != nil {
+		sVal := s.ValueField
+		otherVal := other.ValueField
+		value := NewBoolean(ConvertBoolToInt(sVal == otherVal))
+		value.SetContext(s.Context)
+		return value, nil
+	}
+	return nil, s.IllegalOperation(other)
+}

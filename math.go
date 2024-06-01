@@ -7,7 +7,7 @@ import (
 
 func (b *BuildInFunction) Cos(execCtx *Context) *RTResult {
 	res := NewRTResult()
-	value, exists := execCtx.SymbolTable.Get("x")
+	value, exists, _ := execCtx.SymbolTable.Get("x")
 	if exists && value.Number != nil {
 		switch v := value.Number.ValueField.(type) {
 		case float64:
@@ -23,7 +23,8 @@ func (b *BuildInFunction) Cos(execCtx *Context) *RTResult {
 
 func (b *BuildInFunction) Sin(execCtx *Context) *RTResult {
 	res := NewRTResult()
-	value, exists := execCtx.SymbolTable.Get("x")
+
+	value, exists, _ := execCtx.SymbolTable.Get("x")
 	if exists && value.Number != nil {
 		switch v := value.Number.ValueField.(type) {
 		case float64:

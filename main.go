@@ -30,6 +30,8 @@ const (
 	TT_RPAREN     TokenTypes = "RPAREN"
 	TT_LSQUARE    TokenTypes = "LSQUARE"
 	TT_RSQUARE    TokenTypes = "RSQUARE"
+	TT_LBRACE     TokenTypes = "LBRACE"
+	TT_RBRACE     TokenTypes = "RBRACE"
 	TT_POW        TokenTypes = "POW"
 	TT_EE         TokenTypes = "EE"
 	TT_NE         TokenTypes = "NE"
@@ -41,13 +43,11 @@ const (
 	TT_COMMA      TokenTypes = "COMMA"
 	TT_NEWLINE    TokenTypes = "NEWLINE"
 	TT_ARROW      TokenTypes = "ARROW"
-	TT_LCBRACK    TokenTypes = "LCBRACK"
-	TT_RCBRACK    TokenTypes = "RCBRACK"
 	Zero          Binary     = 0
 	One           Binary     = 1
 )
 
-var KEYWORDS = []string{"var", "and", "or", "not", "if", "then", "else", "elif", "for", "to", "step", "while", "func", "end", "return", "continue", "break", "import", "from", "const"}
+var KEYWORDS = []string{"var", "and", "or", "not", "if", "else", "elif", "for", "to", "step", "while", "func", "return", "continue", "break", "import", "from", "const"}
 var GlobalSymbolTable = NewSymbolTable(nil)
 
 func run(fileName, text string) (*Value, *RuntimeError) {
@@ -98,6 +98,7 @@ func main() {
 	GlobalSymbolTable.Set("append", NewBuildInFunction("append"), false)
 	GlobalSymbolTable.Set("len", NewBuildInFunction("len"), false)
 	GlobalSymbolTable.Set("pop", NewBuildInFunction("pop"), false)
+	GlobalSymbolTable.Set("str", NewBuildInFunction("str"), false)
 
 	if len(os.Args) >= 2 {
 		filePath, _ := filepath.Abs(os.Args[1])
