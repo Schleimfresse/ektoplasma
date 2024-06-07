@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="com.obiscr.chatgpt.settings.EasyCodeState">
+    <option name="projectFiles" value="$PROJECT_DIR$/ecp/syntaxes/ecp.tmLanguage.json;D:/ektoplasma/ecp/syntaxes/test.js;D:/ektoplasma/ecp/CHANGELOG.md;D:/ektoplasma/ecp/language-configuration.json;D:/ektoplasma/ecp/package.json;D:/ektoplasma/ecp/README.md;D:/ektoplasma/ecp/vsc-extension-quickstart.md;D:/ektoplasma/Array.go;D:/ektoplasma/Boolean.go;D:/ektoplasma/errors.go;D:/ektoplasma/Function.go;D:/ektoplasma/interpreter.go;D:/ektoplasma/io.go;D:/ektoplasma/lexer.go;D:/ektoplasma/main.go;D:/ektoplasma/math.go;D:/ektoplasma/nodes.go;D:/ektoplasma/Null.go;D:/ektoplasma/Number.go;D:/ektoplasma/os.go;D:/ektoplasma/parser.go;D:/ektoplasma/README.md;D:/ektoplasma/String.go;D:/ektoplasma/types.go;D:/ektoplasma/utils.go" />
+  </component>
+</project>

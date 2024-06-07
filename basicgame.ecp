@@ -1,0 +1,25 @@
+var x = 10
+var attempts = 1
+
+println("guess the number (1 - 100)")
+var guess
+while true {
+guess = input()
+guess = num(guess)
+if guess == ""{
+continue
+}
+if guess > x {
+println("Number is smaller than " + str(guess))
+attempts = attempts + 1
+}
+if guess == x {
+println("You guessed the number " + str(guess) + " correctly")
+println("It took you " + str(attempts) + " attempts")
+break
+elif guess < x {
+println("Number is larger than " + str(guess))
+attempts = attempts + 1
+}
+}
+}

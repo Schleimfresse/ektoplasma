@@ -139,6 +139,12 @@ func (e RuntimeError) AsString() string {
 	return result
 }
 
+func (e RuntimeError) SetLocation(base *BaseFunction) {
+	e.PosStart = base.PosStart()
+	e.PosEnd = base.PosEnd()
+	e.Context = base.Context
+}
+
 // min returns the minimum of two integers.
 func min(a, b int) int {
 	if a < b {

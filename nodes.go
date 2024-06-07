@@ -152,13 +152,31 @@ func NewBreakNode(PosStart *Position, PosEnd *Position) *BreakNode {
 	return &BreakNode{PosStart, PosEnd}
 }
 
-func NewImportNode(functionNames []*Token, modulName *Token, posStart *Position, posEnd *Position) *ImportNode {
-	return &ImportNode{functionNames, modulName, posStart, posEnd}
+func NewImportNode(importNames []*Token, packageName []*Token, posStart *Position, posEnd *Position) *ImportNode {
+	return &ImportNode{importNames, packageName, posStart, posEnd}
+}
+
+func NewPackageMethod(packageTok *Token, methodName string, callNode Node) *PackageMethod {
+	return &PackageMethod{
+		PackageName:   packageTok.Value.(string),
+		MethodName:    methodName,
+		CallNode:      &callNode,
+		PositionStart: packageTok.PosStart,
+		PositionEnd:   callNode.PosEnd(),
+	}
 }
 
 // String returns the string representation of the array node.
 func (i *ImportNode) String() string {
-	return fmt.Sprintf("(%v, %v)", i.ImportNames, i.ModuleName)
+	var importNames []Token
+	var packageNames []Token
+	for _, name := range i.ImportNames {
+		importNames = append(importNames, *name)
+	}
+	for _, name := range i.PackageNames {
+		packageNames = append(packageNames, *name)
+	}
+	return fmt.Sprintf("(%v, %v)", importNames, packageNames)
 }
 
 func (i *ImportNode) PosStart() *Position {
@@ -379,4 +397,16 @@ func (i *IndexNode) PosEnd() *Position {
 
 func (i *IndexNode) String() string {
 	return fmt.Sprintf("(%v, %v)", i.VarAccessNode, i.IndexNode)
+}
+
+func (p *PackageMethod) PosStart() *Position {
+	return p.PositionStart
+}
+
+func (p *PackageMethod) PosEnd() *Position {
+	return p.PositionEnd
+}
+
+func (p *PackageMethod) String() string {
+	return fmt.Sprintf("(%v, %v, %v)", p.PackageName, p.MethodName, p.CallNode)
 }

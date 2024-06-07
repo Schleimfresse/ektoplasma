@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"strconv"
+	"strings"
 )
 
 // NewFunction creates a new Function instance.
@@ -17,7 +18,7 @@ func (f *Function) Execute(args []*Value) *RTResult {
 	interpreter := NewInterpreter()
 	execCtx := f.Base.GenerateNewContext()
 
-	res.Register(f.Base.CheckAndPopulateArgs(f.ArgNames, args, execCtx))
+	res.Register(f.Base.CheckAndPopulateArgs(f.ArgNames, args, execCtx, false))
 	if res.ShouldReturn() {
 		return res
 	}
@@ -103,8 +104,12 @@ func (b *BaseFunction) GenerateNewContext() *Context {
 	return newContext
 }
 
-func (b *BaseFunction) CheckArgs(argNames []string, args []*Value) *RTResult {
+func (b *BaseFunction) CheckArgs(argNames []string, args []*Value, variadic bool) *RTResult {
 	res := NewRTResult()
+
+	if variadic {
+		return res.Success(nil)
+	}
 
 	if len(args) > len(argNames) {
 		return res.Failure(NewRTError(
@@ -125,23 +130,37 @@ func (b *BaseFunction) CheckArgs(argNames []string, args []*Value) *RTResult {
 	return res.Success(nil)
 }
 
-func (b *BaseFunction) PopulateArgs(argNames []string, args []*Value, execCtx *Context) {
-	for i, argName := range argNames {
-		argValue := args[i]
-		value := argValue.SetContext(execCtx)
-		execCtx.SymbolTable.Set(argName, value, false)
+func (b *BaseFunction) PopulateArgs(argNames []string, args []*Value, execCtx *Context, variadic bool) {
+	if variadic {
+		value := NewVariadicArray(args)
+		execCtx.SymbolTable.Set(argNames[0], value, false)
+	} else {
+		for i, argName := range argNames {
+			argValue := args[i]
+			/*if argValue.Function != nil {
+				argValue = argValue.Function.Execute(argValue.)
+			} else if argValue.BuildInFunction != nil {
+
+			} else if argValue.StdLibFunction != nil {
+
+			}*/
+			value := argValue.SetContext(execCtx)
+			execCtx.SymbolTable.Set(argName, value, false)
+		}
 	}
 }
 
-func (b *BaseFunction) CheckAndPopulateArgs(argNames []string, args []*Value, execCtx *Context) *RTResult {
+func (b *BaseFunction) CheckAndPopulateArgs(argNames []string, args []*Value, execCtx *Context, variadic bool) *RTResult {
 	res := NewRTResult()
-	res.Register(b.CheckArgs(argNames, args))
+	res.Register(b.CheckArgs(argNames, args, variadic))
 	if res.Error != nil {
 		return res
 	}
-	b.PopulateArgs(argNames, args, execCtx)
+	b.PopulateArgs(argNames, args, execCtx, variadic)
 	return res.Success(nil)
 }
+
+// TODO rethink approach, maybe general declaration?
 
 func NewBuildInFunction(name string) *Value {
 	BuildInFn := &BuildInFunction{Base: NewBaseFunction(&name), Methods: make(map[string]Method)}
@@ -155,13 +174,14 @@ func NewBuildInFunction(name string) *Value {
 	BuildInFn.Methods["append"] = Method{ArgsNames: []string{"array", "value"}, Fn: BuildInFn.ExecuteAppend}
 	BuildInFn.Methods["len"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteLen}
 	BuildInFn.Methods["pop"] = Method{ArgsNames: []string{"array", "index"}, Fn: BuildInFn.ExecutePop}
-	BuildInFn.Methods["str"] = Method{ArgsNames: []string{"number"}, Fn: BuildInFn.ExecuteStr}
+	BuildInFn.Methods["str"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteStr}
+	BuildInFn.Methods["num"] = Method{ArgsNames: []string{"value"}, Fn: BuildInFn.ExecuteNum}
 
 	return &Value{BuildInFunction: BuildInFn}
 
 }
 
-func (b *BuildInFunction) Execute(args []*Value) *RTResult {
+func (b *BuildInFunction) Execute(args ...*Value) *RTResult {
 	res := NewRTResult()
 	execCtx := b.Base.GenerateNewContext()
 	method, ok := b.Methods[b.Base.Name]
@@ -169,10 +189,15 @@ func (b *BuildInFunction) Execute(args []*Value) *RTResult {
 		b.noVisitMethod()
 	}
 
-	res.Register(b.Base.CheckAndPopulateArgs(method.ArgsNames, args, execCtx))
-	if res.Error != nil {
-		return res
+	if b.Base.Name == "print" || b.Base.Name == "println" {
+		res.Register(b.Base.CheckAndPopulateArgs(method.ArgsNames, args, execCtx, true))
+	} else {
+		res.Register(b.Base.CheckAndPopulateArgs(method.ArgsNames, args, execCtx, false))
+		if res.Error != nil {
+			return res
+		}
 	}
+
 	returnValue := res.Register(method.Fn(execCtx))
 	if res.Error != nil {
 		return res
@@ -239,12 +264,16 @@ func (b *BuildInFunction) ExecuteAppend(execCtx *Context) *RTResult {
 
 func (b *BuildInFunction) ExecuteLen(execCtx *Context) *RTResult {
 	value, exists, _ := execCtx.SymbolTable.Get("value")
-	if exists && value.Array != nil {
-		return NewRTResult().Success(NewNumber(len(value.Array.Elements)))
-	} else if value.String != nil {
-		return NewRTResult().Success(NewNumber(len(value.String.ValueField)))
+	res := NewRTResult()
+	if exists {
+		result := value.Length()
+		if result != nil {
+			return res.Success(result)
+		} else {
+			return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("Cannot get length of %s", value.Type()), execCtx))
+		}
 	} else {
-		return NewRTResult().Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("argument must be an Array or String, got: %v", value.Type()), execCtx))
+		return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("missing argument"), execCtx))
 	}
 }
 
@@ -275,17 +304,46 @@ func (b *BuildInFunction) ExecutePop(execCtx *Context) *RTResult {
 
 func (b *BuildInFunction) ExecuteStr(execCtx *Context) *RTResult {
 	res := NewRTResult()
-	number, exists, _ := execCtx.SymbolTable.Get("number")
+	value, exists, _ := execCtx.SymbolTable.Get("value")
 
 	if !exists {
 		return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), "Missing an argument for a conversion to string", execCtx))
-	} else if number.Number != nil {
-		switch number := number.Number.ValueField.(type) {
+	} else if value.Number != nil {
+		switch number := value.Number.ValueField.(type) {
 		case int:
 			return res.Success(NewString(strconv.Itoa(number)))
 		case float64:
 			return res.Success(NewString(strconv.Itoa(int(number))))
 		}
+	} else if value.ByteArray != nil {
+		return res.Success(value.ByteArray.ToString())
 	}
 	return res.Success(NewNull())
+}
+
+func (b *BuildInFunction) ExecuteNum(execCtx *Context) *RTResult {
+	res := NewRTResult()
+	value, exists, _ := execCtx.SymbolTable.Get("value")
+
+	if !exists {
+		return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), "Missing an argument for a conversion to Number (integer)", execCtx))
+	} else if value.String != nil {
+		if strings.Contains(value.String.ValueField, ".") {
+			parsed, _ := strconv.ParseFloat(value.String.ValueField, 64)
+			return res.Success(NewNumber(parsed))
+
+		} else {
+			parsed, _ := strconv.Atoi(value.String.ValueField)
+			return res.Success(NewNumber(parsed))
+		}
+	} else if value.ByteArray != nil {
+		result, err := value.ByteArray.ToNumber()
+		if err != nil {
+			return res.Failure(err)
+		}
+		return res.Success(result)
+	} else if value.Number != nil {
+		return res.Success(value)
+	}
+	return res.Failure(NewRTError(b.Base.PosStart(), b.Base.PosEnd(), fmt.Sprintf("Can not use given argument of type %s", value.Type()), b.Base.Context))
 }

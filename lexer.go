@@ -122,6 +122,9 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 		} else if l.CurrentChar == ',' {
 			tokens = append(tokens, NewToken(TT_COMMA, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
+		} else if l.CurrentChar == '.' {
+			tokens = append(tokens, NewToken(TT_DOT, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
 		} else {
 			posStart := l.Pos.Copy()
 			char := string(l.CurrentChar)

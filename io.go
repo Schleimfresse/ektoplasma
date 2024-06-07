@@ -24,7 +24,6 @@ func (b *BuildInFunction) executePrint(execCtx *Context) *RTResult {
 
 func (b *BuildInFunction) executePrintLn(execCtx *Context) *RTResult {
 	value, exists, _ := execCtx.SymbolTable.Get("value")
-
 	if exists {
 		_, err := syscall.Write(syscall.Stdout, interfaceToBytes(value.Value()))
 		if err != nil {

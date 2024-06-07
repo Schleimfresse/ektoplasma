@@ -54,6 +54,9 @@ func (v *Value) SetPos(posStart *Position, posEnd *Position) *Value {
 	} else if v.BuildInFunction != nil {
 		v.BuildInFunction.Base.PositionStart = posStart
 		v.BuildInFunction.Base.PositionEnd = posEnd
+	} else if v.StdLibFunction != nil {
+		v.StdLibFunction.Base.PositionStart = posStart
+		v.StdLibFunction.Base.PositionEnd = posEnd
 	} else if v.Null != nil {
 		v.Null.PositionStart = posStart
 		v.Null.PositionEnd = posEnd
@@ -81,6 +84,12 @@ func (v *Value) Value() interface{} {
 			return v.Null.String()
 		} else if v.Boolean != nil {
 			return v.Boolean.String()
+		} else if v.StdLibFunction != nil {
+			return v.StdLibFunction.String()
+		} else if v.ByteArray != nil {
+			return v.ByteArray.ValueField
+		} else if v.VariadicArray != nil {
+			return v.VariadicArray.Array
 		}
 	}
 	return v
@@ -93,6 +102,8 @@ func (v *Value) Copy() *Value {
 		return v.String.Copy()
 	} else if v.Function != nil {
 		return v.Function.Copy()
+	} else if v.StdLibFunction != nil {
+		v.StdLibFunction.Copy()
 	} else if v.Array != nil {
 		return v.Array.Copy()
 	} else if v.BuildInFunction != nil {
@@ -115,6 +126,8 @@ func (v *Value) GetPosStart() *Position {
 		return v.Array.PosStart()
 	} else if v.Boolean != nil {
 		return v.Boolean.PosStart()
+	} else if v.Null != nil {
+		return v.Null.PosStart()
 	}
 	return nil
 }
@@ -133,6 +146,8 @@ func (v *Value) GetPosEnd() *Position {
 		return v.Array.PosEnd()
 	} else if v.Boolean != nil {
 		return v.Boolean.PosEnd()
+	} else if v.Null != nil {
+		return v.Null.PosEnd()
 	}
 	return nil
 }
@@ -170,8 +185,21 @@ func (v *Value) Type() string {
 		return "Array"
 	} else if v.Boolean != nil {
 		return "Boolean"
+	} else if v.Null != nil {
+		return "Null"
 	}
 	return ""
+}
+
+func (v *Value) Length() *Value {
+	if v.ByteArray != nil {
+		return v.ByteArray.Length()
+	} else if v.Array != nil {
+		return v.Array.Length()
+	} else if v.String != nil {
+		return v.String.Length()
+	}
+	return nil
 }
 
 func (v *Value) IsEmpty() bool {
@@ -203,6 +231,18 @@ func interfaceToBytes(data interface{}) []byte {
 			}
 		}
 		return result
+	case []byte:
+		var output []byte
+		output = append(output, '[')
+		for i, b := range v {
+			byteStr := strconv.Itoa(int(b))
+			output = append(output, byteStr...)
+			if i < len(v)-1 {
+				output = append(output, ' ')
+			}
+		}
+		output = append(output, ']')
+		return output
 	}
 	panic("unexpected type " + reflect.TypeOf(data).String())
 }
@@ -275,7 +315,7 @@ func toInt(val interface{}) int {
 	}
 }
 
-func LoadModule(moduleName string) (string, error) {
+func LoadPackage(moduleName string) (string, error) {
 	filename := moduleName + ".ecp"
 	content, err := os.ReadFile(filename)
 	if err != nil {

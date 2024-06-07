@@ -9,7 +9,7 @@ func NewNumber(value interface{}) *Value {
 	return &Value{Number: &Number{ValueField: value}}
 }
 
-func (n *Number) IllegalOperation(other *Number) *RuntimeError {
+func (n *Number) IllegalOperation(other interface{}) *RuntimeError {
 	if other == nil {
 		other = n
 	}
@@ -149,13 +149,22 @@ func (n *Number) PowedBy(other *Number) (*Value, *RuntimeError) {
 	return nil, n.IllegalOperation(other)
 }
 
-func (n *Number) GetComparisonEq(other *Number) (*Value, *RuntimeError) {
+func (n *Number) GetComparisonEq(other *Value) (*Value, *RuntimeError) {
 	if other != nil {
-		nVal := toInt(n.ValueField)
-		otherVal := toInt(other.ValueField)
-		value := NewBoolean(ConvertBoolToInt(nVal == otherVal))
-		value.SetContext(n.Context)
-		return value, nil
+		if other.Number != nil {
+			nVal := toInt(n.ValueField)
+			otherVal := toInt(other.Number.ValueField)
+			value := NewBoolean(ConvertBoolToInt(nVal == otherVal))
+			value.SetContext(n.Context)
+			return value, nil
+		} else if other.String != nil {
+			switch nVal := n.ValueField.(type) {
+			case int:
+				return NewBoolean(ConvertBoolToInt(string(rune(nVal)) == other.String.ValueField)), nil
+			case float64:
+				return NewBoolean(ConvertBoolToInt(string(rune(nVal)) == other.String.ValueField)), nil
+			}
+		}
 	}
 	return nil, n.IllegalOperation(other)
 }

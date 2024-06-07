@@ -66,6 +66,13 @@ func (a *Array) IllegalOperation(other *Array) *RuntimeError {
 	return NewRTError(a.PosStart(), a.PosEnd(), "Illegal operation", a.Context)
 }
 
+// Length returns the length of the byte array.
+func (a *Array) Length() *Value {
+	value := NewNumber(float64(len(a.Elements)))
+	value.SetContext(a.Context)
+	return value
+}
+
 // String representation of Array
 func (a *Array) String() string {
 	elementStrings := make([]string, len(a.Elements))
@@ -88,4 +95,12 @@ func (a *Array) String() string {
 		}
 	}
 	return fmt.Sprintf("[%s]", strings.Join(elementStrings, ", "))
+}
+
+func NewVariadicArray(elements []*Value) *Value {
+	var array []*Value
+	for e := range elements {
+		array = append(array, elements[e])
+	}
+	return &Value{VariadicArray: &VariadicArray{array, array[0].GetPosStart(), array[len(array)-1].GetPosEnd(), array[0].GetContext()}}
 }

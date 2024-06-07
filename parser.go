@@ -134,7 +134,6 @@ func (p *Parser) ArrayExpr() *ParseResult {
 func (p *Parser) ifExpr() *ParseResult {
 	res := NewParseResult()
 	allCases := res.Register(p.ifExprCases("if"))
-	log.Println("IF EXPR:", res.Error)
 	if res.Error != nil {
 		return res
 	}
@@ -190,7 +189,6 @@ func (p *Parser) ifExprC() *ParseResult {
 			elseCase = NewElseCaseNode(expr, false)
 		}
 	}
-	log.Println("else:", elseCase)
 	return res.Success(elseCase)
 }
 
@@ -211,7 +209,6 @@ func (p *Parser) ifExprBOrC() *ParseResult {
 		cases, elseCase = ifNode.Cases, ifNode.ElseCase
 	} else {
 		elseCaseResult := res.Register(p.ifExprC())
-		log.Println("else err:", res.Error)
 		if res.Error != nil {
 			return res
 		}
@@ -254,7 +251,6 @@ func (p *Parser) ifExprCases(caseKeyword string) *ParseResult {
 			return res
 		}
 		cases = append(cases, NewIfCaseNode(condition, statements, true))
-		log.Println("if cases:", p.Current.Type)
 		if p.Current.Type == TT_RBRACE {
 			res.RegisterAdvancement()
 			p.Advance()
@@ -686,7 +682,6 @@ func (p *Parser) Atom() *ParseResult {
 		return res.Failure(err.Error)
 	} else if tok.Matches(TT_KEYWORD, "if") {
 		IfExpr := res.Register(p.ifExpr())
-		log.Println("ERR IN IF:", res.Error)
 		if res.Error != nil {
 			return res
 		}
@@ -705,7 +700,6 @@ func (p *Parser) Atom() *ParseResult {
 		return res.Success(WhileExpr)
 	} else if tok.Matches(TT_KEYWORD, "func") {
 		FuncDef := res.Register(p.FuncDef())
-		log.Println("FUNC DEF RET:", FuncDef)
 		if res.Error != nil {
 			return res
 		}
@@ -760,7 +754,7 @@ func (p *Parser) Factor() *ParseResult {
 	res := NewParseResult()
 	tok := p.Current
 	if tok.Type == TT_PLUS || tok.Type == TT_MINUS {
-		p.Advance() // Advance token index here
+		p.Advance()
 		factor := res.Register(p.Factor())
 		return res.Success(NewUnaryOpNode(tok, factor))
 	}
@@ -773,11 +767,7 @@ func (p *Parser) Term() *ParseResult {
 }
 
 func (p *Parser) Statements() *ParseResult {
-	log.Println("TOK", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 	res := ParseResult{AdvanceCount: 0}
-
-	// wird getriggered weil symbol table noch nicht gesetzt wurde muss so gestaltet werden das abfrage erst erfolgt wenn table aktualisiert wurde
-	log.Println("TOK 2", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 
 	var statements []Node
 	PosStart := p.Current.PosStart.Copy()
@@ -786,14 +776,11 @@ func (p *Parser) Statements() *ParseResult {
 		res.RegisterAdvancement()
 		p.Advance()
 	}
-	log.Println("TOK 3", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 
 	statement := res.Register(p.Statement())
 	if res.Error != nil {
 		return &res
 	}
-
-	log.Println("TOK 4", p.Current.Type, p.Current.Value, p.Current.PosStart.Ln, p.Current.PosStart.Idx)
 
 	statements = append(statements, statement)
 
@@ -812,8 +799,8 @@ func (p *Parser) Statements() *ParseResult {
 		if !MoreStatements {
 			break
 		}
+
 		statement = res.TryRegister(p.Statement())
-		log.Println("FOR STATEMENT", p.Current.Type, p.Current.Value, statement)
 		if statement == nil {
 			p.Reverse(&res.ToReverseCount)
 			MoreStatements = false
@@ -908,7 +895,6 @@ func (p *Parser) Expr() *ParseResult {
 		}
 		return res.Success(NewVarAssignNode(varName, &expr, isConst, true))
 	} else if p.Current.Type == TT_IDENTIFIER { // in case of a variable re-assignment, so we don't need the var keyword for each assignment, only for the initial
-		log.Println("re-assignment parser")
 		varName := p.Current
 		res.RegisterAdvancement()
 		p.Advance()
@@ -921,11 +907,20 @@ func (p *Parser) Expr() *ParseResult {
 			if res.Error != nil {
 				return res
 			}
-			log.Println("re-assignment parser 2, node:", NewVarAssignNode(varName, &expr, false, false))
 
 			return res.Success(NewVarAssignNode(varName, &expr, false, false))
+		} else if p.Current.Type == TT_DOT {
+			res.RegisterAdvancement()
+			p.Advance()
+			log.Println("DOT", p.Current)
+			callNode := p.Call()
+			log.Println("CALL N", callNode.Node, callNode.Error)
+			if _, ok := callNode.Node.(*CallNode); ok {
+				return res.Success(NewPackageMethod(varName, callNode.Node.(*CallNode).NodeToCall.(*VarAccessNode).VarNameTok.Value.(string), callNode.Node))
+			} else if _, ok := callNode.Node.(*VarAccessNode); ok {
+				return res.Success(NewPackageMethod(varName, callNode.Node.(*VarAccessNode).VarNameTok.Value.(string), callNode.Node))
+			}
 		} else {
-			log.Println("REVerse")
 			p.Reverse(&res.ToReverseCount)
 		}
 	}
@@ -933,7 +928,6 @@ func (p *Parser) Expr() *ParseResult {
 	and := "AND"
 	or := "OR"
 	node := res.Register(p.BinOp(p.CompExpr, []TokenTypeInfo{{TT_KEYWORD, &and}, {TT_KEYWORD, &or}}, p.CompExpr))
-
 	if res.Error != nil {
 		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'").Error)
 	}
@@ -944,50 +938,47 @@ func (p *Parser) Expr() *ParseResult {
 func (p *Parser) ImportExpr() *ParseResult {
 	res := NewParseResult()
 	var functionNames []*Token
+	var packageNames []*Token
 	posStart := p.Current.PosStart
 
 	res.RegisterAdvancement()
 	p.Advance()
 
-	if p.Current.Type != TT_IDENTIFIER {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected identifier").Error)
-	}
-
-	functionNames = append(functionNames, p.Current)
-
-	res.RegisterAdvancement()
-	p.Advance()
-
-	for p.Current.Type == TT_COMMA {
+	if p.Current.Type == TT_STRING {
+		var packageName = p.Current
 		res.RegisterAdvancement()
 		p.Advance()
-
-		if p.Current.Type != TT_IDENTIFIER {
-			return res.Failure(NewInvalidSyntaxError(
-				p.Current.PosStart, p.Current.PosEnd,
-				"Expected identifier",
-			).Error)
+		if p.Current.Type == TT_NEWLINE {
+			return res.Success(NewImportNode(nil, []*Token{packageName}, posStart, p.Current.PosEnd.Copy()))
 		}
-
+	} else if p.Current.Type == TT_IDENTIFIER {
 		functionNames = append(functionNames, p.Current)
 		res.RegisterAdvancement()
 		p.Advance()
+
+		for p.Current.Type == TT_COMMA {
+			res.RegisterAdvancement()
+			p.Advance()
+			functionNames = append(functionNames, p.Current)
+			res.RegisterAdvancement()
+			p.Advance()
+		}
+		if !p.Current.Matches(TT_KEYWORD, "from") {
+			return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'from'").Error)
+		}
+		res.RegisterAdvancement()
+		p.Advance()
+
+		packageNames = append(packageNames, p.Current)
+
+		posEnd := p.Current.PosEnd.Copy()
+
+		res.RegisterAdvancement()
+		p.Advance()
+
+		return res.Success(NewImportNode(functionNames, packageNames, posStart, posEnd))
 	}
-
-	if !p.Current.Matches(TT_KEYWORD, "from") {
-		return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected 'from'").Error)
-	}
-
-	res.RegisterAdvancement()
-	p.Advance()
-
-	modulName := p.Current
-	posEnd := p.Current.PosEnd.Copy()
-
-	res.RegisterAdvancement()
-	p.Advance()
-
-	return res.Success(NewImportNode(functionNames, modulName, posStart, posEnd))
+	return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, fmt.Sprintf("Can not import %s, type %s", p.Current.Value, p.Current.Type)).Error)
 }
 
 // / BinOp parses a binary operation.

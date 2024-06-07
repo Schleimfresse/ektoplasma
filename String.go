@@ -58,13 +58,34 @@ func (s *String) AddedTo(other *String) (*Value, *RuntimeError) {
 	return value, nil
 }
 
-func (s *String) GetComparisonEq(other *String) (*Value, *RuntimeError) {
+func (s *String) GetComparisonEq(other *Value) (*Value, *RuntimeError) {
 	if other != nil {
-		sVal := s.ValueField
-		otherVal := other.ValueField
-		value := NewBoolean(ConvertBoolToInt(sVal == otherVal))
-		value.SetContext(s.Context)
-		return value, nil
+		if other.String != nil {
+			sVal := s.ValueField
+			otherVal := other.String.ValueField
+			value := NewBoolean(ConvertBoolToInt(sVal == otherVal))
+			value.SetContext(s.Context)
+			return value, nil
+		} else if other.Number != nil {
+			sVal := s.ValueField
+			var otherVal string
+			switch other.Number.ValueField.(type) {
+			case int:
+				otherVal = string(rune(other.Number.ValueField.(int)))
+			case float64:
+				otherVal = string(rune(other.Number.ValueField.(int)))
+			}
+			value := NewBoolean(ConvertBoolToInt(sVal == otherVal))
+			value.SetContext(s.Context)
+			return value, nil
+		}
 	}
 	return nil, s.IllegalOperation(other)
+}
+
+// Length returns the length of the byte array.
+func (s *String) Length() *Value {
+	value := NewNumber(float64(len(s.ValueField)))
+	value.SetContext(s.Context)
+	return value
 }

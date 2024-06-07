@@ -1,0 +1,25 @@
+{
+  "name": "ecp",
+  "displayName": "ektoplasma code highlighting",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "ecp",
+      "aliases": ["ektoplasma", "ecp"],
+      "extensions": [".ecp"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "ecp",
+      "scopeName": "",
+      "path": "./syntaxes/ecp.tmLanguage.json"
+    }]
+  }
+}

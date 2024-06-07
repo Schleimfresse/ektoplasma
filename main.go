@@ -43,6 +43,7 @@ const (
 	TT_COMMA      TokenTypes = "COMMA"
 	TT_NEWLINE    TokenTypes = "NEWLINE"
 	TT_ARROW      TokenTypes = "ARROW"
+	TT_DOT        TokenTypes = "DOT"
 	Zero          Binary     = 0
 	One           Binary     = 1
 )
@@ -85,20 +86,21 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 }
 
 func main() {
-	GlobalSymbolTable.Set("null", NewNull(), false)
-	GlobalSymbolTable.Set("false", NewBoolean(0), false)
-	GlobalSymbolTable.Set("true", NewBoolean(1), false)
-	GlobalSymbolTable.Set("print", NewBuildInFunction("print"), false)
-	GlobalSymbolTable.Set("println", NewBuildInFunction("println"), false)
-	GlobalSymbolTable.Set("input", NewBuildInFunction("Input"), false)
-	GlobalSymbolTable.Set("isString", NewBuildInFunction("isString"), false)
-	GlobalSymbolTable.Set("isNumber", NewBuildInFunction("isNumber"), false)
-	GlobalSymbolTable.Set("isFunction", NewBuildInFunction("isFunction"), false)
-	GlobalSymbolTable.Set("isArray", NewBuildInFunction("isArray"), false)
-	GlobalSymbolTable.Set("append", NewBuildInFunction("append"), false)
-	GlobalSymbolTable.Set("len", NewBuildInFunction("len"), false)
-	GlobalSymbolTable.Set("pop", NewBuildInFunction("pop"), false)
-	GlobalSymbolTable.Set("str", NewBuildInFunction("str"), false)
+	GlobalSymbolTable.SetBuildIn("null", NewNull())
+	GlobalSymbolTable.SetBuildIn("false", NewBoolean(0))
+	GlobalSymbolTable.SetBuildIn("true", NewBoolean(1))
+	GlobalSymbolTable.SetBuildIn("print", NewBuildInFunction("print"))
+	GlobalSymbolTable.SetBuildIn("println", NewBuildInFunction("println"))
+	GlobalSymbolTable.SetBuildIn("input", NewBuildInFunction("Input"))
+	GlobalSymbolTable.SetBuildIn("isString", NewBuildInFunction("isString"))
+	GlobalSymbolTable.SetBuildIn("isNumber", NewBuildInFunction("isNumber"))
+	GlobalSymbolTable.SetBuildIn("isFunction", NewBuildInFunction("isFunction"))
+	GlobalSymbolTable.SetBuildIn("isArray", NewBuildInFunction("isArray"))
+	GlobalSymbolTable.SetBuildIn("append", NewBuildInFunction("append"))
+	GlobalSymbolTable.SetBuildIn("len", NewBuildInFunction("len"))
+	GlobalSymbolTable.SetBuildIn("pop", NewBuildInFunction("pop"))
+	GlobalSymbolTable.SetBuildIn("str", NewBuildInFunction("str"))
+	GlobalSymbolTable.SetBuildIn("num", NewBuildInFunction("num"))
 
 	if len(os.Args) >= 2 {
 		filePath, _ := filepath.Abs(os.Args[1])

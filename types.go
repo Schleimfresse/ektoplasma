@@ -158,6 +158,8 @@ type RTResult struct {
 type SymbolTable struct {
 	symbols   map[string]*Value
 	constants map[string]*Value
+	buildIn   map[string]*Value
+	packages  map[string]*Package
 	parent    *SymbolTable
 }
 
@@ -238,7 +240,7 @@ type ContinueNode struct {
 
 type ImportNode struct {
 	ImportNames                []*Token
-	ModuleName                 *Token
+	PackageNames               []*Token
 	PositionStart, PositionEnd *Position
 }
 
@@ -253,6 +255,12 @@ type Function struct {
 type BuildInFunction struct {
 	Base    *BaseFunction
 	Methods map[string]Method
+}
+
+type StdLibFunction struct {
+	Base        *BaseFunction
+	PackageName string
+	Function    func(args []*Value) *RTResult
 }
 
 type Method struct {
@@ -302,8 +310,41 @@ type Value struct {
 	Number          *Number
 	Function        *Function
 	BuildInFunction *BuildInFunction
+	StdLibFunction  *StdLibFunction
 	String          *String
 	Array           *Array
 	Null            *Null
 	Boolean         *Boolean
+	Reference       *Reference
+	ByteArray       *ByteArray
+	VariadicArray   *VariadicArray
+}
+
+type Package struct {
+	Methods map[string]*Value
+}
+
+type PackageMethod struct {
+	PositionStart, PositionEnd *Position
+	PackageName                string
+	MethodName                 string
+	CallNode                   *Node
+}
+
+type Reference struct {
+	Target *Value
+}
+
+type ByteArray struct {
+	ValueField    []byte
+	PositionStart *Position
+	PositionEnd   *Position
+	Context       *Context
+}
+
+type VariadicArray struct {
+	Array         []*Value
+	PositionStart *Position
+	PositionEnd   *Position
+	Context       *Context
 }

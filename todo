@@ -1,8 +1,8 @@
 GOAL: weg von basic mehr low-level syntax
 
-multiple expressions
-THEN  & END mit {} austauschen
-index mit [] nicht mit /
+multiple expressions [+]
+THEN  & END mit {} austauschen [+]
+index mit [] nicht mit / [+]
 
 kommentare mit //
 documentation für lang
