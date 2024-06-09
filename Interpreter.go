@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 )
 
@@ -377,11 +376,19 @@ func (i *Interpreter) visitPackageMethodNode(node PackageMethod, context *Contex
 	res := NewRTResult()
 	var result *Value
 	packageMethod, exists := context.SymbolTable.GetPackageMethod(node.PackageName, node.MethodName)
+
 	if !exists {
-		return res.Failure(NewRTError(
-			node.PosStart(), node.PosEnd(),
-			fmt.Sprintf("Unresolved package reference '%s'", node.PackageName),
-			context))
+		if _, exists := context.SymbolTable.packages[node.PackageName]; exists {
+			return res.Failure(NewRTError(
+				node.PosStart(), node.PosEnd(),
+				fmt.Sprintf("Unresolved function reference '%s' in '%s' package", node.MethodName, node.PackageName),
+				context))
+		} else {
+			return res.Failure(NewRTError(
+				node.PosStart(), node.PosEnd(),
+				fmt.Sprintf("Unresolved package reference '%s'", node.PackageName),
+				context))
+		}
 	}
 
 	packageMethod.SetPos(node.PosStart(), node.PosEnd()).SetContext(context)
@@ -413,7 +420,6 @@ func (i *Interpreter) visitVarAccessNode(node VarAccessNode, context *Context) *
 
 	value, exists, _ := context.SymbolTable.Get(varName.(string))
 	if !exists {
-		log.Println("VAR NAME:", varName, context.SymbolTable.packages)
 		if _, exists := context.SymbolTable.packages[varName.(string)]; exists {
 			// TODO error for package with dot but no func -> parser917
 			return res.Failure(NewRTError(

@@ -172,6 +172,7 @@ func Scan(fileName string, line string) {
 			fmt.Println(result.Null.String())
 		}
 
-		// TODO may add Value String() method -> no check inside one element in wrapper for array on it
 	}
 }
+
+// TODO rework in linux and make adjustments

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -187,6 +188,10 @@ func (v *Value) Type() string {
 		return "Boolean"
 	} else if v.Null != nil {
 		return "Null"
+	} else if v.ByteArray != nil {
+		return "ByteArray"
+	} else if v.Reference != nil {
+		return "Pointer"
 	}
 	return ""
 }
@@ -219,6 +224,10 @@ func interfaceToBytes(data interface{}) []byte {
 		return []byte(v)
 	case int:
 		return []byte(strconv.Itoa(v))
+	case int64:
+		return []byte(strconv.Itoa(int(v)))
+	case uint32:
+		return []byte(strconv.Itoa(int(v)))
 	case float64:
 		return []byte(strconv.FormatFloat(v, 'f', -1, 64))
 	case []string:
@@ -253,6 +262,10 @@ func valueToBytes(value *Value) []byte {
 		return []byte(v)
 	case int:
 		return []byte(strconv.Itoa(v))
+	case int64:
+		return []byte(strconv.Itoa(int(v)))
+	case uint32:
+		return []byte(strconv.Itoa(int(v)))
 	case float64:
 		return []byte(strconv.FormatFloat(v, 'f', -1, 64))
 	case []*Value:
@@ -322,4 +335,29 @@ func LoadPackage(moduleName string) (string, error) {
 		return "", err
 	}
 	return string(content), nil
+}
+
+func checkArgumentTypes(args []*Value, expectedTypes []string) *RuntimeError {
+	if len(args) != len(expectedTypes) {
+		return NewRTError(
+			nil, nil,
+			fmt.Sprintf("Expected %d arguments, but got %d", len(expectedTypes), len(args)),
+			nil,
+		)
+	}
+
+	for i, arg := range args {
+		if expectedTypes[i] == "Any" {
+			continue
+		}
+		if arg.Type() != expectedTypes[i] {
+			return NewRTError(
+				nil, nil,
+				fmt.Sprintf("Expected argument %d of type %s, but got %s", i+1, expectedTypes[i], arg.Type()),
+				nil,
+			)
+		}
+	}
+
+	return nil
 }

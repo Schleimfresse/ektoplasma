@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 )
 
@@ -912,9 +911,7 @@ func (p *Parser) Expr() *ParseResult {
 		} else if p.Current.Type == TT_DOT {
 			res.RegisterAdvancement()
 			p.Advance()
-			log.Println("DOT", p.Current)
 			callNode := p.Call()
-			log.Println("CALL N", callNode.Node, callNode.Error)
 			if _, ok := callNode.Node.(*CallNode); ok {
 				return res.Success(NewPackageMethod(varName, callNode.Node.(*CallNode).NodeToCall.(*VarAccessNode).VarNameTok.Value.(string), callNode.Node))
 			} else if _, ok := callNode.Node.(*VarAccessNode); ok {

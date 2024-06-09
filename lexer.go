@@ -133,8 +133,10 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 		}
 	}
 
-	// wehn newline not last breaks things, TODO err wenn letztes zeichen keine newline
-	tokens = append(tokens, NewToken(TT_NEWLINE, nil, l.Pos.Copy(), l.Pos.Copy()))
+	// wehn newline not last breaks things
+	if tokens[len(tokens)-1].Type != TT_NEWLINE {
+		tokens = append(tokens, NewToken(TT_NEWLINE, nil, l.Pos.Copy(), l.Pos.Copy()))
+	}
 	tokens = append(tokens, NewToken(TT_EOF, nil, l.Pos.Copy(), l.Pos.Copy()))
 	return tokens, nil
 }
