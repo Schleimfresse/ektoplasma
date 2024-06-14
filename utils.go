@@ -91,6 +91,10 @@ func (v *Value) Value() interface{} {
 			return v.ByteArray.ValueField
 		} else if v.VariadicArray != nil {
 			return v.VariadicArray.Array
+		} else if v.Pointer != nil {
+			return v.Pointer.Addr
+		} else if v.Dereference != nil {
+			return v.Dereference.Value.Value()
 		}
 	}
 	return v
@@ -190,8 +194,10 @@ func (v *Value) Type() string {
 		return "Null"
 	} else if v.ByteArray != nil {
 		return "ByteArray"
-	} else if v.Reference != nil {
+	} else if v.Pointer != nil {
 		return "Pointer"
+	} else if v.Dereference != nil {
+		return "Dereference"
 	}
 	return ""
 }

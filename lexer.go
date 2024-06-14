@@ -81,9 +81,6 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 		} else if l.CurrentChar == '-' {
 			tokens = append(tokens, NewToken(TT_MINUS, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
-		} else if l.CurrentChar == '*' {
-			tokens = append(tokens, NewToken(TT_MUL, nil, l.Pos.Copy(), l.Pos.Copy()))
-			l.Advance()
 		} else if l.CurrentChar == '{' {
 			tokens = append(tokens, NewToken(TT_LBRACE, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
@@ -124,6 +121,12 @@ func (l *Lexer) MakeTokens() ([]*Token, *Error) {
 			l.Advance()
 		} else if l.CurrentChar == '.' {
 			tokens = append(tokens, NewToken(TT_DOT, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
+		} else if l.CurrentChar == '&' {
+			tokens = append(tokens, NewToken(TT_AND, nil, l.Pos.Copy(), l.Pos.Copy()))
+			l.Advance()
+		} else if l.CurrentChar == '*' {
+			tokens = append(tokens, NewToken(TT_STAR, nil, l.Pos.Copy(), l.Pos.Copy()))
 			l.Advance()
 		} else {
 			posStart := l.Pos.Copy()

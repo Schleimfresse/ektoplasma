@@ -39,7 +39,7 @@ func NewIndexNode(varAccessNode *VarAccessNode, index *NumberNode) *IndexNode {
 }
 
 // NewVarAssignNode creates a new VarAssignNode instance.
-func NewVarAssignNode(varNameTok *Token, valueNode *Node, isConst bool, declaration bool) *VarAssignNode {
+func NewVarAssignNode(varNameTok *Token, valueNode Node, isConst bool, declaration bool) *VarAssignNode {
 	return &VarAssignNode{varNameTok, valueNode, isConst, declaration, varNameTok.PosStart, varNameTok.PosEnd}
 }
 
@@ -164,6 +164,14 @@ func NewPackageMethod(packageTok *Token, methodName string, callNode Node) *Pack
 		PositionStart: packageTok.PosStart,
 		PositionEnd:   callNode.PosEnd(),
 	}
+}
+
+func NewReference(target Node) *ReferenceNode {
+	return &ReferenceNode{target, target.PosStart(), target.PosEnd()}
+}
+
+func NewDereference(target Node) *DereferenceNode {
+	return &DereferenceNode{target, target.PosStart(), target.PosEnd()}
 }
 
 // String returns the string representation of the array node.
@@ -409,4 +417,28 @@ func (p *PackageMethod) PosEnd() *Position {
 
 func (p *PackageMethod) String() string {
 	return fmt.Sprintf("(%v, %v, %v)", p.PackageName, p.MethodName, p.CallNode)
+}
+
+func (r *ReferenceNode) PosStart() *Position {
+	return r.PositionStart
+}
+
+func (r *ReferenceNode) PosEnd() *Position {
+	return r.PositionEnd
+}
+
+func (r *ReferenceNode) String() string {
+	return fmt.Sprintf("(%v)", r.Target)
+}
+
+func (d *DereferenceNode) PosStart() *Position {
+	return d.PositionStart
+}
+
+func (d *DereferenceNode) PosEnd() *Position {
+	return d.PositionEnd
+}
+
+func (d *DereferenceNode) String() string {
+	return fmt.Sprintf("(%v)", d.Target)
 }

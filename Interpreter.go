@@ -47,6 +47,11 @@ func (i *Interpreter) visit(node Node, context *Context) *RTResult {
 		return i.visitImportNode(*n, context)
 	case *PackageMethod:
 		return i.visitPackageMethodNode(*n, context)
+	case *ReferenceNode:
+		return i.visitReferenceNode(*n, context)
+	case *DereferenceNode:
+		return i.visitDereferenceNode(*n, context)
+
 	default:
 		// Handle unknown node types
 		return NewRTResult().Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("No visit method defined for node type %T", node), context))
@@ -262,7 +267,7 @@ func (i *Interpreter) visitBinOpNode(node BinOpNode, context *Context) *RTResult
 		} else {
 			result, err = left.Number.SubtractedBy(right.Number)
 		}
-	case TT_MUL:
+	case TT_STAR:
 		if left.String != nil && right.Number != nil {
 			result, err = left.String.MultipliedBy(right.Number)
 		} else if left.Number != nil && right.Number != nil {
@@ -454,7 +459,7 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 			context))
 	}
 	if node.ValueNode != nil {
-		value = res.Register(i.visit(*node.ValueNode, context))
+		value = res.Register(i.visit(node.ValueNode, context))
 	} else {
 		value = NewNull()
 	}
@@ -652,7 +657,6 @@ func (i *Interpreter) visitCallNode(node CallNode, context *Context) *RTResult {
 		return res
 	}
 	valueToCall := Call.SetPos(node.PosStart(), node.PosEnd()).SetContext(context)
-
 	for _, argNode := range node.ArgNodes {
 		args = append(args, res.Register(i.visit(argNode, context)))
 		if res.Error != nil {
@@ -697,6 +701,27 @@ func (i *Interpreter) visitIndexNode(node IndexNode, context *Context) *RTResult
 	} else {
 		return res.Failure(NewRTError(node.PosStart(), node.PosEnd(), fmt.Sprintf("Element at index %v could not be retrieved, index is out of bounds with length 0", node.IndexNode.Value), context))
 	}
+}
+
+func (i *Interpreter) visitReferenceNode(node ReferenceNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	variable := res.Register(i.visit(node.Target, context))
+
+	ptr := addressOf(variable, memory)
+	return res.Success(ptr)
+}
+
+func (i *Interpreter) visitDereferenceNode(node DereferenceNode, context *Context) *RTResult {
+	res := NewRTResult()
+
+	variable := res.Register(i.visit(node.Target, context))
+
+	if variable.Pointer == nil {
+		return res.Failure(NewRTError(node.PosStart(), node.PosEnd(), "invalid memory address or null pointer dereference", context))
+	}
+
+	return res.Success(dereference(variable.Pointer, memory))
 }
 
 func (i *Interpreter) visitReturnNode(node ReturnNode, context *Context) *RTResult {

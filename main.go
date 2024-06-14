@@ -23,7 +23,6 @@ const (
 	TT_KEYWORD    TokenTypes = "KEYWORD"
 	TT_PLUS       TokenTypes = "PLUS"
 	TT_MINUS      TokenTypes = "MINUS"
-	TT_MUL        TokenTypes = "MUL"
 	TT_DIV        TokenTypes = "DIV"
 	TT_EQ         TokenTypes = "EQ"
 	TT_LPAREN     TokenTypes = "LPAREN"
@@ -44,12 +43,15 @@ const (
 	TT_NEWLINE    TokenTypes = "NEWLINE"
 	TT_ARROW      TokenTypes = "ARROW"
 	TT_DOT        TokenTypes = "DOT"
+	TT_AND        TokenTypes = "AND"
+	TT_STAR       TokenTypes = "STAR"
 	Zero          Binary     = 0
 	One           Binary     = 1
 )
 
 var KEYWORDS = []string{"var", "and", "or", "not", "if", "else", "elif", "for", "to", "step", "while", "func", "return", "continue", "break", "import", "from", "const"}
 var GlobalSymbolTable = NewSymbolTable(nil)
+var memory *Memory
 
 func run(fileName, text string) (*Value, *RuntimeError) {
 	lexer := NewLexer(fileName, text)
@@ -86,6 +88,7 @@ func run(fileName, text string) (*Value, *RuntimeError) {
 }
 
 func main() {
+	memory = NewMemory()
 	GlobalSymbolTable.SetBuildIn("null", NewNull())
 	GlobalSymbolTable.SetBuildIn("false", NewBoolean(0))
 	GlobalSymbolTable.SetBuildIn("true", NewBoolean(1))

@@ -49,7 +49,7 @@ type IndexNode struct {
 // VarAssignNode represents a variable assignment node
 type VarAssignNode struct {
 	VarNameTok    *Token
-	ValueNode     *Node
+	ValueNode     Node
 	isConst       bool
 	declaration   bool
 	PositionStart *Position
@@ -244,6 +244,18 @@ type ImportNode struct {
 	PositionStart, PositionEnd *Position
 }
 
+type ReferenceNode struct {
+	Target        Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type DereferenceNode struct {
+	Target        Node
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
 // Function represents a function value.
 type Function struct {
 	BodyNode *Node
@@ -315,7 +327,8 @@ type Value struct {
 	Array           *Array
 	Null            *Null
 	Boolean         *Boolean
-	Reference       *Reference
+	Pointer         *Pointer
+	Dereference     *Dereference
 	ByteArray       *ByteArray
 	VariadicArray   *VariadicArray
 }
@@ -331,8 +344,16 @@ type PackageMethod struct {
 	CallNode                   *Node
 }
 
-type Reference struct {
-	Target *Value
+type Pointer struct {
+	Addr          string
+	PositionStart *Position
+	PositionEnd   *Position
+}
+
+type Dereference struct {
+	Value         Value
+	PositionStart *Position
+	PositionEnd   *Position
 }
 
 type ByteArray struct {

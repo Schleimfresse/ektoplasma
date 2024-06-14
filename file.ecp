@@ -1,1 +1,6 @@
 import "os"
+
+var x = 10
+var ptr = &x
+println(&x)
+println(*ptr)

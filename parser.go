@@ -459,7 +459,7 @@ func (p *Parser) Call() *ParseResult {
 		} else {
 			ArgNodes = append(ArgNodes, res.Register(p.Expr()))
 			if res.Error != nil {
-				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ')', 'var', 'if', 'for', 'while', 'func', int, float, identifier, '+', '-', '(', '[' or 'not'").Error)
+				return res.Failure(NewInvalidSyntaxError(p.Current.PosStart, p.Current.PosEnd, "Expected ')', 'var', 'if', 'for', 'while', 'func', int, float, identifier, pointer, '+', '-', '(', '[' or 'not'").Error)
 			}
 
 			for p.Current.Type == TT_COMMA {
@@ -762,7 +762,7 @@ func (p *Parser) Factor() *ParseResult {
 }
 
 func (p *Parser) Term() *ParseResult {
-	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_MUL, nil}, {TT_DIV, nil}}, p.Factor)
+	return p.BinOp(p.Factor, []TokenTypeInfo{{TT_STAR, nil}, {TT_DIV, nil}}, p.Factor)
 }
 
 func (p *Parser) Statements() *ParseResult {
@@ -888,11 +888,31 @@ func (p *Parser) Expr() *ParseResult {
 		res.RegisterAdvancement()
 		p.Advance()
 
+		if p.Current.Type == TT_AND {
+			res.RegisterAdvancement()
+			p.Advance()
+			expr := NewReference(res.Register(p.Expr()))
+			if res.Error != nil {
+				return res
+			}
+
+			return res.Success(NewVarAssignNode(varName, expr, isConst, true))
+		} else if p.Current.Type == TT_STAR {
+			res.RegisterAdvancement()
+			p.Advance()
+			expr := NewDereference(res.Register(p.Expr()))
+			if res.Error != nil {
+				return res
+			}
+
+			return res.Success(NewVarAssignNode(varName, expr, isConst, true))
+		}
+
 		expr := res.Register(p.Expr())
 		if res.Error != nil {
 			return res
 		}
-		return res.Success(NewVarAssignNode(varName, &expr, isConst, true))
+		return res.Success(NewVarAssignNode(varName, expr, isConst, true))
 	} else if p.Current.Type == TT_IDENTIFIER { // in case of a variable re-assignment, so we don't need the var keyword for each assignment, only for the initial
 		varName := p.Current
 		res.RegisterAdvancement()
@@ -907,7 +927,7 @@ func (p *Parser) Expr() *ParseResult {
 				return res
 			}
 
-			return res.Success(NewVarAssignNode(varName, &expr, false, false))
+			return res.Success(NewVarAssignNode(varName, expr, false, false))
 		} else if p.Current.Type == TT_DOT {
 			res.RegisterAdvancement()
 			p.Advance()
@@ -920,6 +940,24 @@ func (p *Parser) Expr() *ParseResult {
 		} else {
 			p.Reverse(&res.ToReverseCount)
 		}
+	} else if p.Current.Type == TT_AND {
+		res.RegisterAdvancement()
+		p.Advance()
+		ref := NewReference(res.Register(p.Expr()))
+		if res.Error != nil {
+			return res
+		}
+
+		return res.Success(ref)
+	} else if p.Current.Type == TT_STAR {
+		res.RegisterAdvancement()
+		p.Advance()
+		deref := NewDereference(res.Register(p.Expr()))
+		if res.Error != nil {
+			return res
+		}
+
+		return res.Success(deref)
 	}
 
 	and := "AND"
