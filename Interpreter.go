@@ -467,9 +467,13 @@ func (i *Interpreter) visitVarAssignNode(node VarAssignNode, context *Context) *
 		return res
 	}
 
-	err := context.SymbolTable.Set(varName.(string), value, node.isConst)
-	if err != nil {
-		return res.Failure(err)
+	if val, exists, _ := context.SymbolTable.Get(varName.(string)); exists && val.Type() == "Pointer" {
+		assignToPointer(val.Pointer, value, memory)
+	} else {
+		err := context.SymbolTable.Set(varName.(string), value, node.isConst)
+		if err != nil {
+			return res.Failure(err)
+		}
 	}
 
 	return res.Success(NewEmptyValue())

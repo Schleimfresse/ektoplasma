@@ -4,3 +4,7 @@ var x = 10
 var ptr = &x
 println(&x)
 println(*ptr)
+ptr = 20
+println(&ptr)
+println(ptr)
+println(*ptr)

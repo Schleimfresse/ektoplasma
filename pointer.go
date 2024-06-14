@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+)
 
 type Memory struct {
 	data map[string]*Value
@@ -44,5 +47,6 @@ func dereference(ptr *Pointer, memory *Memory) *Value {
 }
 
 func assignToPointer(ptr *Pointer, value *Value, memory *Memory) {
+	log.Println("Assigning value to pointer", ptr.Addr)
 	memory.Set(ptr.Addr, value)
 }
